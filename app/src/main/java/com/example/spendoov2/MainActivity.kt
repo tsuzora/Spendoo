@@ -53,6 +53,7 @@ import com.example.spendoov2.ui.theme.SpendooV2Theme
 import com.example.spendoov2.ui.theme.interTextStyle
 import com.example.spendoov2.ui.theme.poppinsTextStyle
 import com.example.spendoov2.ui.theme.unboundedFamily
+import java.text.NumberFormat
 
 
 class MainActivity : ComponentActivity() {
@@ -66,6 +67,7 @@ class MainActivity : ComponentActivity() {
                         .fillMaxHeight()
                         .width(300.dp)
                 ) {
+
                     Spendoo()
                 }
 
@@ -78,7 +80,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Pages(modifier: Modifier = Modifier) {
     var pageType by remember { mutableStateOf("home") }
-    var contentType by remember { mutableStateOf("daily") }
+    var contentType by remember { mutableStateOf("monthly") }
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -97,7 +99,11 @@ fun Pages(modifier: Modifier = Modifier) {
                 })
             PageContent(contentType)
         }
-        BottomNav()
+        BottomNav(
+            onClick = {action ->
+                contentType = action
+            }
+        )
     }
 }
 
@@ -204,24 +210,30 @@ fun PageContent(
 
         }
 
-        "daily", "monthly" -> {
+        "daily" -> {
 
-            var transactionType by remember { mutableStateOf(null) }
+            var transactionType: String? by remember { mutableStateOf(null) }
 
             DateNavBar()
             IncomeExpenseNavBar(
                 activeTab = transactionType,
-                selectedTab = { newType ->
+                onTabSelected = { newType ->
                     transactionType = newType
                 }
             )
             RecentTransactionList(filterType = transactionType)
         }
+        "monthly" -> {
+            DateNavBar()
+            MonthlyList()
+        }
     }
 }
 
 @Composable
-fun BottomNav(modifier: Modifier = Modifier) {
+fun BottomNav(
+    onClick: (String) -> Unit,
+    modifier: Modifier = Modifier) {
     Row(
         horizontalArrangement = Arrangement.SpaceAround,
         modifier = modifier
@@ -232,15 +244,19 @@ fun BottomNav(modifier: Modifier = Modifier) {
     ) {
         Image(
             painter = painterResource(R.drawable.home_icon),
-            contentDescription = null
+            contentDescription = null,
+            modifier = modifier
+                .clickable{onClick("all")}
         )
         Image(
             painter = painterResource(R.drawable.plus_icon),
-            contentDescription = null
+            contentDescription = null,
+            modifier = modifier
         )
         Image(
             painter = painterResource(R.drawable.insight_icon),
-            contentDescription = null
+            contentDescription = null,
+            modifier = modifier
         )
     }
 }
@@ -260,6 +276,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
             Column(
                 modifier = modifier.padding(18.dp, 12.dp)
             ) {
+
                 Text(
                     text = "Hi,\nGuest",
                     fontSize = 32.sp,
@@ -272,7 +289,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
                     modifier = modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Rp.11.000.000",
+                    text = "Rp.${AvailableBalance()}",
                     fontSize = 26.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = modifier.fillMaxWidth()
@@ -284,6 +301,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
 
 @Composable
 fun Spendoo() {
+    TransactionData(25)
     Pages()
 }
 

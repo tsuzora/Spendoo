@@ -23,8 +23,8 @@ val categoryExpense = mapOf<String, Int>(
     "Others" to R.drawable.others)
 
 
-fun TransactionData() {
-    for (i in 1..25) {
+fun TransactionData(num: Int) {
+    for (i in 1..num) {
         val transactionType = type.random()
 
          val catTransaction = if (transactionType == "income") {
@@ -32,15 +32,25 @@ fun TransactionData() {
         } else {
             categoryExpense.entries.random()
         }
-        val amount = (1..100).random()
+
+        val amount = if (transactionType == "income") {
+            (1..100).random()
+        } else {
+            (1..35).random()
+        }
+
         val catName = catTransaction.key
         val icon = catTransaction.value
+        val date = (10..15).random()
+        val month = Months.entries.random()
 
         TransactionLists.add(
             TransactionData(
                 transactionType,
                 catName,
-                "16 Aug 2025",
+                date,
+                "September",
+                2025,
                 icon,
                 amount * 10000
             )

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.spendoov2.ui.theme.GreenDark
 import com.example.spendoov2.ui.theme.GreyDark
 import com.example.spendoov2.ui.theme.poppinsTextStyle
 
@@ -33,8 +34,9 @@ import com.example.spendoov2.ui.theme.poppinsTextStyle
 @Composable
 fun IncomeExpenseNavBar(
     activeTab: String?,
-    selectedTab: (String?) -> Unit,
-    modifier: Modifier = Modifier) {
+    onTabSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
 
     val incomeCorner = RoundedCornerShape(24.dp, 0.dp, 0.dp, 24.dp)
     val expenseCorner = RoundedCornerShape(0.dp, 24.dp, 24.dp, 0.dp)
@@ -53,19 +55,18 @@ fun IncomeExpenseNavBar(
                 isActive = activeTab == "income",
                 onClick = {
                     val newTab = if (activeTab == "income") null else "income"
-                    selectedTab(newTab)
+                    onTabSelected(newTab)
                 }
             )
             IncomeExpenseTab(
                 text = "Expense",
-                shape = incomeCorner,
+                shape = expenseCorner,
                 isActive = activeTab == "expense",
                 onClick = {
                     val newTab = if (activeTab == "expense") null else "expense"
-                    selectedTab(newTab)
+                    onTabSelected(newTab)
                 }
             )
-
         }
     }
 }
@@ -78,14 +79,13 @@ fun IncomeExpenseTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     Box(
         modifier = modifier
             .width(165.dp)
             .height(28.dp)
             .clip(shape)
             .background(
-                if (isActive) GreyDark else GreyDark
+                if (isActive) GreenDark else GreyDark
             )
             .clickable(onClick = onClick)
 

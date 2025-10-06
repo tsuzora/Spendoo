@@ -30,22 +30,25 @@ import androidx.compose.ui.unit.sp
 import com.example.spendoov2.ui.theme.ExpenseBackgroundColor
 import com.example.spendoov2.ui.theme.IncomeBackgroundColor
 import com.example.spendoov2.ui.theme.poppinsTextStyle
-
-import java.sql.Date
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 data class TransactionData(
     val type: String,
     val category: String,
-    val date: String,
+    val date: Int,
+    val month: String,
+    val year: Int,
     val image: Int,
     val amount: Int
 )
 
-val TransactionLists = mutableListOf<TransactionData>()
+var TransactionLists = mutableListOf<TransactionData>()
 
 @Composable
 fun RecentTransactionList(filterType: String?, modifier: Modifier = Modifier) {
-    TransactionData()
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -56,12 +59,14 @@ fun RecentTransactionList(filterType: String?, modifier: Modifier = Modifier) {
             TransactionLists.filter { it.type == filterType }
         }
 
+        val sortedTransactionsMonth = transactionShown.sortedByDescending { it.date }
+
         LazyColumn(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(32.dp, 4.dp)
         ) {
-            items(TransactionLists) { transactions ->
+            items(sortedTransactionsMonth) { transactions ->
 
                 TransactionBanner(transaction = transactions)
             }
@@ -107,7 +112,7 @@ fun TransactionBanner(
                     color = Color.Black
                 )
                 Text(
-                    text = transaction.date,
+                    text = "${transaction.date} ${transaction.month} ${transaction.year}",
                     color = Color.Black
                 )
             }
@@ -125,9 +130,8 @@ fun TransactionBanner(
     }
 }
 
-
 @Preview
 @Composable
 fun TransactionBannerPreview() {
-    RecentTransactionList()
+    RecentTransactionList(filterType = null)
 }

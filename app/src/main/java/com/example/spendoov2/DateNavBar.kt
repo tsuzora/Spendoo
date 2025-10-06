@@ -23,7 +23,7 @@ fun DateNavBar(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
             .fillMaxWidth()
-            .padding(28.dp, 4.dp)
+            .padding(28.dp, 0.dp)
     ) {
         Image(
             painter = painterResource(R.drawable.arrow_side_line_left),
