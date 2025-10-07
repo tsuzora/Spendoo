@@ -154,3 +154,9 @@ fun MonthlyBanner(
            TransactionBanner(it) }
     }
 }
+
+@Preview
+@Composable
+fun MonthlyListPreview() {
+    MonthlyList()
+}

@@ -32,10 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,18 +41,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.spendoov2.ui.theme.BottomNavColor
 import com.example.spendoov2.ui.theme.CardInfoBackgroundColor
-import com.example.spendoov2.ui.theme.CustomColor
-import com.example.spendoov2.ui.theme.GreenDark
-import com.example.spendoov2.ui.theme.GreenLight
-import com.example.spendoov2.ui.theme.GreenMid
-import com.example.spendoov2.ui.theme.GreyDark
 import com.example.spendoov2.ui.theme.MainBackgroundColor
 import com.example.spendoov2.ui.theme.SpendooV2Theme
 import com.example.spendoov2.ui.theme.interFamily
 import com.example.spendoov2.ui.theme.interTextStyle
 import com.example.spendoov2.ui.theme.poppinsTextStyle
 import com.example.spendoov2.ui.theme.unboundedFamily
-import java.text.NumberFormat
 
 
 class MainActivity : ComponentActivity() {
@@ -66,51 +58,143 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(300.dp)
+                        .fillMaxWidth()
                 ) {
-
-                    Spendoo()
+                    AppNavigation()
                 }
-
             }
         }
     }
 }
 
+@Composable
+fun AppNavigation(modifier: Modifier = Modifier) {
+    var currentScreen by remember { mutableStateOf("splash") }
+
+    when (currentScreen) {
+        "splash" -> {
+            SplashScreen(
+                onNavigateToLogin = { currentScreen = "login" }
+            )
+        }
+        "login" -> {
+            LoginPage(
+                onNavigateToHome = { currentScreen = "home" },
+                onNavigateToSignUp = { currentScreen = "signup" }
+            )
+        }
+        "signup" -> {
+            SignUpPage(
+                onNavigateBack = { currentScreen = "login" }
+            )
+        }
+        "home" -> {
+            Spendoo()
+        }
+    }
+}
 
 @Composable
 fun Pages(modifier: Modifier = Modifier) {
-    var pageType by remember { mutableStateOf("search") }
+    var pageType by remember { mutableStateOf("home") }
     var contentType by remember { mutableStateOf("all") }
-    Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .fillMaxWidth()
-            .background(MainBackgroundColor)
+    var showSettingsOverlay by remember { mutableStateOf(false) }
+    var showExportOverlay by remember { mutableStateOf(false) }
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier.fillMaxHeight()
     ) {
         Column(
             modifier = modifier
-                .weight(1f)
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .background(MainBackgroundColor)
         ) {
-            TopBanner(
-                contentType,
-                        pageType,
-                onClick = { newTab ->
-                    contentType = newTab
-                },
-                onNavigateToPage = {newPage ->
-                    pageType = newPage
-                })
-            PageContent(
-                contentType,
-                pageType
+            Column(
+                modifier = modifier
+                    .weight(1f)
+            ) {
+                TopBanner(
+                    contentType,
+                    pageType,
+                    onClick = { newTab ->
+                        contentType = newTab
+                    },
+                    onNavigateToPage = { newPage ->
+                        pageType = newPage
+                    },
+                    onSettingsClick = {
+                        showSettingsOverlay = true
+                    }
+                )
+                PageContent(
+                    contentType,
+                    pageType
+                )
+            }
+            BottomNav(
+                onClick = { action ->
+                    contentType = action
+                }
             )
         }
-        BottomNav(
-            onClick = {action ->
-                contentType = action
-            }
-        )
+
+        // Overlays
+        if (showSettingsOverlay) {
+            SettingsOverlay(
+                onDismiss = {
+                    showSettingsOverlay = false
+                    showExportOverlay = false
+                },
+                onExportClick = {
+                    showExportOverlay = true
+                },
+                onEditProfileClick = {
+                    // Handle edit profile
+                },
+                onLogoutClick = {
+                    showLogoutConfirmation = true
+                }
+            )
+        }
+
+        if (showExportOverlay) {
+            ExportOptionsOverlay(
+                onDismiss = {
+                    showExportOverlay = false
+                },
+                onAllTransactionsClick = {
+                    // Handle export all transactions
+                    showExportOverlay = false
+                    showSettingsOverlay = false
+                },
+                onDailyClick = {
+                    // Handle export daily
+                    showExportOverlay = false
+                    showSettingsOverlay = false
+                },
+                onMonthlyClick = {
+                    // Handle export monthly
+                    showExportOverlay = false
+                    showSettingsOverlay = false
+                }
+            )
+        }
+
+        if (showLogoutConfirmation) {
+            ConfirmationOverlay(
+                message = "Are you sure?",
+                onConfirm = {
+                    // Handle logout
+                    showLogoutConfirmation = false
+                    showSettingsOverlay = false
+                },
+                onCancel = {
+                    showLogoutConfirmation = false
+                }
+            )
+        }
     }
 }
 
@@ -120,6 +204,7 @@ fun TopBanner(
     content: String,
     onClick: (String) -> Unit,
     onNavigateToPage: (String) -> Unit,
+    onSettingsClick: () -> Unit = {},
     textStyle: TextStyle = interTextStyle,
     modifier: Modifier = Modifier
 ) {
@@ -151,11 +236,13 @@ fun TopBanner(
                                 painter = painterResource(R.drawable.search_icon),
                                 contentDescription = "Search",
                                 modifier = modifier
-                                    .clickable{onNavigateToPage("search")}
-                                )
+                                    .clickable { onNavigateToPage("search") }
+                            )
                             Image(
                                 painter = painterResource(R.drawable.dot_option),
-                                contentDescription = null
+                                contentDescription = "Settings",
+                                modifier = modifier
+                                    .clickable { onSettingsClick() }
                             )
                         }
                     }
@@ -178,7 +265,7 @@ fun TopBanner(
                             painter = painterResource(R.drawable.arrow_side_line_left),
                             contentDescription = "Back",
                             modifier = modifier
-                                .clickable{onNavigateToPage("home")}
+                                .clickable { onNavigateToPage("home") }
                         )
                         val textStyle = TextStyle(
                             textAlign = TextAlign.Right,
@@ -193,16 +280,16 @@ fun TopBanner(
     }
 }
 
-
 @Composable
 fun LogoContainer(
     textStyle: TextStyle,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier
+) {
     CompositionLocalProvider(LocalTextStyle provides textStyle) {
         Column(
             modifier = modifier
                 .width(150.dp)
-        ){
+        ) {
             Text(
                 text = "SPENDOO",
                 fontSize = 20.sp,
@@ -279,11 +366,11 @@ fun PageContent(
     }
 }
 
-
 @Composable
 fun BottomNav(
     onClick: (String) -> Unit,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier
+) {
     Row(
         horizontalArrangement = Arrangement.SpaceAround,
         modifier = modifier
@@ -296,7 +383,7 @@ fun BottomNav(
             painter = painterResource(R.drawable.home_icon),
             contentDescription = null,
             modifier = modifier
-                .clickable{onClick("all")}
+                .clickable { onClick("all") }
         )
         Image(
             painter = painterResource(R.drawable.plus_icon),
@@ -349,16 +436,9 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
     }
 }
 
+@Preview
 @Composable
 fun Spendoo() {
     TransactionData(25)
     Pages()
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun HomePagePreview() {
-    SpendooV2Theme {
-        Spendoo()
-    }
 }
