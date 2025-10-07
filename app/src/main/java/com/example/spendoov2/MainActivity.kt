@@ -18,10 +18,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -32,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -41,6 +46,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.spendoov2.ui.theme.BottomNavColor
 import com.example.spendoov2.ui.theme.CardInfoBackgroundColor
 import com.example.spendoov2.ui.theme.CustomColor
@@ -68,7 +77,6 @@ class MainActivity : ComponentActivity() {
                         .fillMaxHeight()
                         .width(300.dp)
                 ) {
-
                     Spendoo()
                 }
 
@@ -77,10 +85,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
-fun Pages(modifier: Modifier = Modifier) {
-    var pageType by remember { mutableStateOf("search") }
+fun Pages(
+    navController: NavController,
+    modifier: Modifier = Modifier
+) {
+    var pageType by remember { mutableStateOf("home") }
     var contentType by remember { mutableStateOf("all") }
     Column(
         modifier = modifier
@@ -94,20 +104,21 @@ fun Pages(modifier: Modifier = Modifier) {
         ) {
             TopBanner(
                 contentType,
-                        pageType,
+                pageType,
                 onClick = { newTab ->
                     contentType = newTab
                 },
-                onNavigateToPage = {newPage ->
+                onNavigateToPage = { newPage ->
                     pageType = newPage
-                })
+                },
+                navController = navController)
             PageContent(
                 contentType,
                 pageType
             )
         }
         BottomNav(
-            onClick = {action ->
+            onClick = { action ->
                 contentType = action
             }
         )
@@ -120,6 +131,7 @@ fun TopBanner(
     content: String,
     onClick: (String) -> Unit,
     onNavigateToPage: (String) -> Unit,
+    navController: NavController,
     textStyle: TextStyle = interTextStyle,
     modifier: Modifier = Modifier
 ) {
@@ -151,8 +163,8 @@ fun TopBanner(
                                 painter = painterResource(R.drawable.search_icon),
                                 contentDescription = "Search",
                                 modifier = modifier
-                                    .clickable{onNavigateToPage("search")}
-                                )
+                                    .clickable { navController.navigate("search_screen") }
+                            )
                             Image(
                                 painter = painterResource(R.drawable.dot_option),
                                 contentDescription = null
@@ -165,44 +177,29 @@ fun TopBanner(
                         onClick = onClick
                     )
                 }
-                "analysis" -> {
+
+                "search" -> {
 
                 }
-                "search" -> {
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = modifier
-                            .fillMaxWidth()
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.arrow_side_line_left),
-                            contentDescription = "Back",
-                            modifier = modifier
-                                .clickable{onNavigateToPage("home")}
-                        )
-                        val textStyle = TextStyle(
-                            textAlign = TextAlign.Right,
-                            color = Color.White,
-                            fontSize = 16.sp
-                        )
-                        LogoContainer(textStyle)
-                    }
+
+                "edit" -> {
+
                 }
             }
         }
     }
 }
 
-
 @Composable
 fun LogoContainer(
     textStyle: TextStyle,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier
+) {
     CompositionLocalProvider(LocalTextStyle provides textStyle) {
         Column(
             modifier = modifier
                 .width(150.dp)
-        ){
+        ) {
             Text(
                 text = "SPENDOO",
                 fontSize = 20.sp,
@@ -253,7 +250,6 @@ fun PageContent(
                         }
                     }
                     RecentTransactionList(filterType = null)
-
                 }
 
                 "daily" -> {
@@ -283,7 +279,8 @@ fun PageContent(
 @Composable
 fun BottomNav(
     onClick: (String) -> Unit,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier
+) {
     Row(
         horizontalArrangement = Arrangement.SpaceAround,
         modifier = modifier
@@ -296,7 +293,7 @@ fun BottomNav(
             painter = painterResource(R.drawable.home_icon),
             contentDescription = null,
             modifier = modifier
-                .clickable{onClick("all")}
+                .clickable { onClick("all") }
         )
         Image(
             painter = painterResource(R.drawable.plus_icon),
@@ -352,7 +349,18 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
 @Composable
 fun Spendoo() {
     TransactionData(25)
-    Pages()
+    val navController = rememberNavController()
+
+    NavHost(navController = navController, startDestination = "home_screen") {
+
+        composable("home_screen") {
+
+            Pages(navController = navController)
+        }
+        composable("search_screen") {
+            SearchPage(navController = navController)
+        }
+    }
 }
 
 @Preview(showBackground = true, showSystemUi = true)
