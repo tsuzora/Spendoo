@@ -107,8 +107,11 @@ fun Pages(modifier: Modifier = Modifier) {
             )
         }
         BottomNav(
-            onClick = {action ->
+            onClick = { action ->
                 contentType = action
+            },
+            onNavigateToPage = {newPage ->
+                pageType = newPage
             }
         )
     }
@@ -283,6 +286,7 @@ fun PageContent(
 @Composable
 fun BottomNav(
     onClick: (String) -> Unit,
+    onNavigateToPage: (String) -> Unit,
     modifier: Modifier = Modifier) {
     Row(
         horizontalArrangement = Arrangement.SpaceAround,
@@ -307,6 +311,7 @@ fun BottomNav(
             painter = painterResource(R.drawable.insight_icon),
             contentDescription = null,
             modifier = modifier
+                .clickable{onNavigateToPage("analysis")}
         )
     }
 }
