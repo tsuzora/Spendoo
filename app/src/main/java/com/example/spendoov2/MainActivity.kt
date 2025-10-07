@@ -50,6 +50,7 @@ import com.example.spendoov2.ui.theme.GreenMid
 import com.example.spendoov2.ui.theme.GreyDark
 import com.example.spendoov2.ui.theme.MainBackgroundColor
 import com.example.spendoov2.ui.theme.SpendooV2Theme
+import com.example.spendoov2.ui.theme.interFamily
 import com.example.spendoov2.ui.theme.interTextStyle
 import com.example.spendoov2.ui.theme.poppinsTextStyle
 import com.example.spendoov2.ui.theme.unboundedFamily
@@ -79,8 +80,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun Pages(modifier: Modifier = Modifier) {
-    var pageType by remember { mutableStateOf("home") }
-    var contentType by remember { mutableStateOf("monthly") }
+    var pageType by remember { mutableStateOf("search") }
+    var contentType by remember { mutableStateOf("all") }
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -96,8 +97,14 @@ fun Pages(modifier: Modifier = Modifier) {
                         pageType,
                 onClick = { newTab ->
                     contentType = newTab
+                },
+                onNavigateToPage = {newPage ->
+                    pageType = newPage
                 })
-            PageContent(contentType)
+            PageContent(
+                contentType,
+                pageType
+            )
         }
         BottomNav(
             onClick = {action ->
@@ -112,6 +119,7 @@ fun TopBanner(
     contentTabs: String,
     content: String,
     onClick: (String) -> Unit,
+    onNavigateToPage: (String) -> Unit,
     textStyle: TextStyle = interTextStyle,
     modifier: Modifier = Modifier
 ) {
@@ -131,18 +139,7 @@ fun TopBanner(
                         modifier = modifier
                             .fillMaxWidth()
                     ) {
-                        Column(
-                        ) {
-                            Text(
-                                text = "SPENDOO",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight(700),
-                                fontFamily = unboundedFamily
-                            )
-                            Text(
-                                text = "You Earn, We Learn"
-                            )
-                        }
+                        LogoContainer(textStyle)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -152,8 +149,9 @@ fun TopBanner(
                         ) {
                             Image(
                                 painter = painterResource(R.drawable.search_icon),
-                                contentDescription = null,
-
+                                contentDescription = "Search",
+                                modifier = modifier
+                                    .clickable{onNavigateToPage("search")}
                                 )
                             Image(
                                 painter = painterResource(R.drawable.dot_option),
@@ -170,65 +168,117 @@ fun TopBanner(
                 "analysis" -> {
 
                 }
+                "search" -> {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = modifier
+                            .fillMaxWidth()
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.arrow_side_line_left),
+                            contentDescription = "Back",
+                            modifier = modifier
+                                .clickable{onNavigateToPage("home")}
+                        )
+                        val textStyle = TextStyle(
+                            textAlign = TextAlign.Right,
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
+                        LogoContainer(textStyle)
+                    }
+                }
             }
         }
     }
 }
 
 
-
+@Composable
+fun LogoContainer(
+    textStyle: TextStyle,
+    modifier: Modifier = Modifier) {
+    CompositionLocalProvider(LocalTextStyle provides textStyle) {
+        Column(
+            modifier = modifier
+                .width(150.dp)
+        ){
+            Text(
+                text = "SPENDOO",
+                fontSize = 20.sp,
+                fontWeight = FontWeight(700),
+                fontFamily = unboundedFamily,
+                modifier = modifier
+                    .fillMaxWidth()
+            )
+            Text(
+                text = "You Earn, We Learn",
+                fontFamily = interFamily,
+                modifier = modifier
+                    .fillMaxWidth()
+            )
+        }
+    }
+}
 
 @Composable
 fun PageContent(
     content: String,
+    pageContent: String,
     textStyle: TextStyle = interTextStyle,
     modifier: Modifier = Modifier
 ) {
-    when (content) {
-        "all" -> {
-            QuickInfoCard()
-            CompositionLocalProvider(LocalTextStyle provides poppinsTextStyle) {
+    when (pageContent) {
+        "home" -> {
+            when (content) {
+                "all" -> {
+                    QuickInfoCard()
+                    CompositionLocalProvider(LocalTextStyle provides poppinsTextStyle) {
 
-                Column(
-                    modifier = modifier
-                        .padding(28.dp, 12.dp)
-                        .fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Recent Transactions",
-                        fontSize = 18.sp,
-                        color = Color.White
+                        Column(
+                            modifier = modifier
+                                .padding(28.dp, 12.dp)
+                                .fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Recent Transactions",
+                                fontSize = 18.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Last 7 Days",
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                    RecentTransactionList(filterType = null)
+
+                }
+
+                "daily" -> {
+
+                    var transactionType: String? by remember { mutableStateOf(null) }
+
+                    DateNavBar()
+                    IncomeExpenseNavBar(
+                        activeTab = transactionType,
+                        onTabSelected = { newType ->
+                            transactionType = newType
+                        }
                     )
-                    Text(
-                        text = "Last 7 Days",
-                        fontSize = 12.sp,
-                        color = Color.White
-                    )
+                    RecentTransactionList(filterType = transactionType)
+                }
+
+                "monthly" -> {
+                    DateNavBar()
+                    MonthlyList()
                 }
             }
-            RecentTransactionList(filterType = null)
-
-        }
-
-        "daily" -> {
-
-            var transactionType: String? by remember { mutableStateOf(null) }
-
-            DateNavBar()
-            IncomeExpenseNavBar(
-                activeTab = transactionType,
-                onTabSelected = { newType ->
-                    transactionType = newType
-                }
-            )
-            RecentTransactionList(filterType = transactionType)
-        }
-        "monthly" -> {
-            DateNavBar()
-            MonthlyList()
         }
     }
 }
+
 
 @Composable
 fun BottomNav(

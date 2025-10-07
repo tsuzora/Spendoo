@@ -32,25 +32,13 @@ import androidx.compose.ui.unit.sp
 import com.example.spendoov2.ui.theme.GreenMid
 import com.example.spendoov2.ui.theme.poppinsTextStyle
 
-data class MonthlyList(
-    val date: Int,
-    val month: String,
-    val transactionList: TransactionData
-)
-
-val monthlyList = mutableListOf<Unit>()
-
-@Preview
 @Composable
 fun MonthlyList(modifier: Modifier = Modifier) {
-    val tempMonthList = listOf<Int>(15,14,13)
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(32.dp, 0.dp)
     ) {
-
-
         val totalIncome = TotalIncome()
         val totalExpense = TotalExpense()
         CompositionLocalProvider(LocalTextStyle provides poppinsTextStyle) {
@@ -104,6 +92,7 @@ fun MonthlyList(modifier: Modifier = Modifier) {
            item {MonthlyContainer(14)}
            item {MonthlyContainer(13)}
         }
+
     }
 }
 
@@ -117,6 +106,7 @@ fun MonthlyContainer(
         Column(
             modifier = modifier
                 .fillMaxWidth()
+                .padding(0.dp, 12.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -160,7 +150,7 @@ fun MonthlyBanner(
         val filteredTransaction = TransactionLists.filter { it.date == date }
         val sortedTransactionsMonth = filteredTransaction.sortedByDescending { it.date }
 
-
-       sortedTransactionsMonth.forEach { TransactionBanner(it) }
+       sortedTransactionsMonth.forEach {
+           TransactionBanner(it) }
     }
 }

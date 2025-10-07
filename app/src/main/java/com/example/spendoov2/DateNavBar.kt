@@ -30,7 +30,7 @@ fun DateNavBar(modifier: Modifier = Modifier) {
             contentDescription = null
         )
         Text(
-            text = "August 15, 2025",
+            text = "September, 2025",
             fontFamily = poppinsFamily,
             color = Color.White
         )

@@ -21,7 +21,7 @@ val GreyDark = Color(0xff4A4F4B)
 val MainBackgroundColor = Brush.linearGradient(
     colorStops = arrayOf(
         0.0f to Color(0xFF178237),
-        0.2f to Color(0xFF1B1C28),
+        0.25f to Color(0xFF1B1C28),
         1f to Color(0xFF1B1C28)
     ),
     start = Offset.Zero,
