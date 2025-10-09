@@ -1,5 +1,6 @@
 package com.example.spendoov2
 
+import AddTransaction
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -120,7 +121,8 @@ fun Pages(
         BottomNav(
             onClick = { action ->
                 contentType = action
-            }
+            },
+            navController = navController
         )
     }
 }
@@ -279,6 +281,7 @@ fun PageContent(
 @Composable
 fun BottomNav(
     onClick: (String) -> Unit,
+    navController: NavController,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -299,6 +302,7 @@ fun BottomNav(
             painter = painterResource(R.drawable.plus_icon),
             contentDescription = null,
             modifier = modifier
+                .clickable{navController.navigate("add_screen")}
         )
         Image(
             painter = painterResource(R.drawable.insight_icon),
@@ -359,6 +363,9 @@ fun Spendoo() {
         }
         composable("search_screen") {
             SearchPage(navController = navController)
+        }
+        composable("add_screen") {
+            AddTransaction()
         }
     }
 }

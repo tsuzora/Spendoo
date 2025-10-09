@@ -1,5 +1,6 @@
 package com.example.spendoov2
 
+import AddTransaction
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,5 +35,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         "home" -> {
             Spendoo()
         }
+
     }
 }
