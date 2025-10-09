@@ -75,9 +75,9 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(300.dp)
+                        .fillMaxWidth()
                 ) {
-                    Spendoo()
+                    AppNavigation()
                 }
 
             }
@@ -348,7 +348,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
 
 @Composable
 fun Spendoo() {
-    TransactionData(25)
+    TransactionData(50)
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = "home_screen") {
