@@ -57,3 +57,24 @@ val IncomeBackgroundColor = Brush.linearGradient(
     start = Offset.Zero,
     end = Offset.Infinite
 )
+
+val AddIncomeBGColor = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to Color(0xFF2F9944),
+        1f to Color(0xFF54E871)
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
+)
+
+val AddExpenseBGColor = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to Color(0xFFFF6A6A),
+        1f to Color(0xFF994040)
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
+)
+
+
+
