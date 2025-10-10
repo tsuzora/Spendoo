@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun Pages(modifier: Modifier = Modifier) {
-    var pageType by remember { mutableStateOf("search") }
+    var pageType by remember { mutableStateOf("all") }
     var contentType by remember { mutableStateOf("all") }
     Column(
         modifier = modifier
