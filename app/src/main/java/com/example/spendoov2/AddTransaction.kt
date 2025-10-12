@@ -5,7 +5,18 @@ package com.example.spendoov2
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -13,8 +24,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -133,8 +155,26 @@ fun AddTransaction(
                     .height(40.dp)
                     .clip(RoundedCornerShape(20.dp))
             ) {
-                TransactionTypeButton("Income", selectedType == "Income", { selectedType = "Income" }, Modifier.weight(1f))
-                TransactionTypeButton("Expense", selectedType == "Expense", { selectedType = "Expense" }, Modifier.weight(1f))
+                TransactionTypeButton(
+                    "Income",
+                    selectedType == "Income",
+                    {
+                        if (selectedType != "Income") {
+                            selectedType = "Income"
+                            selectedCategory = null
+                        }
+                    },
+                    Modifier.weight(1f))
+                TransactionTypeButton(
+                    "Expense",
+                    selectedType == "Expense",
+                    {
+                        if (selectedType != "Expense") {
+                            selectedType = "Expense"
+                            selectedCategory = null
+                        }
+                    },
+                    Modifier.weight(1f))
             }
 
             Spacer(modifier = Modifier.height(30.dp))
@@ -369,7 +409,12 @@ fun AmountField(value: String, onValueChange: (String) -> Unit) {
             )
             BasicTextField(
                 value = value,
-                onValueChange = onValueChange,
+                onValueChange = {
+                        newText ->
+                    if (newText.all { it.isDigit() }) {
+                        onValueChange(newText)
+                    }
+                },
                 textStyle = TextStyle(
                     color = Color.White,
                     fontSize = 24.sp,
@@ -577,7 +622,7 @@ fun TimePickerOverlay(
     initialHour: Int, initialMinute: Int, initialIsAm: Boolean,
     onDismiss: () -> Unit, onTimeSelected: (hour: Int, minute: Int, isAm: Boolean) -> Unit
 ) {
-    // State internal untuk picker, menggunakan format 12 jam
+    // Internal state for the picker, using a 12-hour format for the UI
     var hour by remember { mutableStateOf(if (initialHour > 12) initialHour - 12 else if (initialHour == 0) 12 else initialHour) }
     var minute by remember { mutableStateOf(initialMinute) }
     var isAm by remember { mutableStateOf(initialIsAm) }
@@ -592,6 +637,8 @@ fun TimePickerOverlay(
         ) {
             Text("Time Picker", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Main row containing numbers and AM/PM toggle
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
@@ -599,40 +646,48 @@ fun TimePickerOverlay(
                 NumberPicker(value = hour, onValueChange = { hour = it }, range = 1..12)
                 Text(":", fontSize = 48.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
                 NumberPicker(value = minute, onValueChange = { minute = it }, range = 0..59)
+                Spacer(Modifier.width(16.dp))
+
+                // AM/PM buttons stacked vertically
+                Column {
+                    val amBgColor = if (isAm) AddIncomeBGColor else Color.LightGray.copy(alpha = 0.3f)
+                    val pmBgColor = if (!isAm) AddIncomeBGColor else Color.LightGray.copy(alpha = 0.3f)
+                    val amTextColor = if (isAm) Color.White else Color.Black
+                    val pmTextColor = if (!isAm) Color.White else Color.Black
+
+                    TextButton(
+                        onClick = { isAm = true },
+                        modifier = Modifier.background(amBgColor, RoundedCornerShape(8.dp)),
+                        colors = ButtonDefaults.textButtonColors(contentColor = amTextColor)
+                    ) { Text("AM") }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    TextButton(
+                        onClick = { isAm = false },
+                        modifier = Modifier.background(pmBgColor, RoundedCornerShape(8.dp)),
+                        colors = ButtonDefaults.textButtonColors(contentColor = pmTextColor)
+                    ) { Text("PM") }
+                }
             }
+
             Spacer(modifier = Modifier.height(24.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.LightGray.copy(alpha = 0.3f))
-                    .padding(4.dp)
+
+            // Confirm button to set the time and close the dialog
+            Button(
+                onClick = {
+                    // Convert 12-hour format back to 24-hour format before saving
+                    val finalHour = when {
+                        isAm && hour == 12 -> 0    // 12 AM is 00:00
+                        !isAm && hour < 12 -> hour + 12 // 1 PM to 11 PM
+                        else -> hour                   // Handles 1 AM-11 AM and 12 PM
+                    }
+                    onTimeSelected(finalHour, minute, isAm)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = AddIncomeBGColor)
             ) {
-                val amBgColor = if (isAm) AddIncomeBGColor else Color.Transparent
-                val pmBgColor = if (!isAm) AddIncomeBGColor else Color.Transparent
-
-                TextButton(
-                    onClick = {
-                        isAm = true
-                        // Konversi kembali ke format 24 jam saat menyimpan
-                        val finalHour = if(hour == 12) 0 else hour
-                        onTimeSelected(finalHour, minute, true)
-                    },
-                    modifier = Modifier.weight(1f).fillMaxSize().background(amBgColor, RoundedCornerShape(8.dp)),
-                    colors = ButtonDefaults.textButtonColors(contentColor = if(isAm) Color.White else Color.Black)
-                ) { Text("AM") }
-
-                TextButton(
-                    onClick = {
-                        isAm = false
-                        // Konversi kembali ke format 24 jam saat menyimpan
-                        val finalHour = if(hour == 12) 12 else hour + 12
-                        onTimeSelected(finalHour, minute, false)
-                    },
-                    modifier = Modifier.weight(1f).fillMaxSize().background(pmBgColor, RoundedCornerShape(8.dp)),
-                    colors = ButtonDefaults.textButtonColors(contentColor = if(!isAm) Color.White else Color.Black)
-                ) { Text("PM") }
+                Text("Set Time", color = Color.White)
             }
         }
     }
@@ -644,17 +699,21 @@ fun NumberPicker(value: Int, onValueChange: (Int) -> Unit, range: IntRange) {
         Icon(
             painter = painterResource(id = R.drawable.arrow_up),
             contentDescription = "Increase",
-            modifier = Modifier.size(36.dp).clickable {
-                onValueChange((value + 1).let { if (it > range.last) range.first else it })
-            }
+            modifier = Modifier
+                .size(36.dp)
+                .clickable {
+                    onValueChange((value + 1).let { if (it > range.last) range.first else it })
+                }
         )
         Text(String.format("%02d", value), fontSize = 48.sp, fontWeight = FontWeight.Bold)
         Icon(
             painter = painterResource(id = R.drawable.arrow_down),
             contentDescription = "Decrease",
-            modifier = Modifier.size(36.dp).clickable {
-                onValueChange((value - 1).let { if (it < range.first) range.last else it })
-            }
+            modifier = Modifier
+                .size(36.dp)
+                .clickable {
+                    onValueChange((value - 1).let { if (it < range.first) range.last else it })
+                }
         )
     }
 }
@@ -679,9 +738,16 @@ fun CalendarOverlay(initialDate: Calendar, onDismiss: () -> Unit, onDateSelected
                 Icon(
                     painter = painterResource(id = R.drawable.arrow_side_line_left),
                     contentDescription = "Previous Month",
-                    modifier = Modifier.size(24.dp).clickable {
-                        displayedMonth = (displayedMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                    }
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable {
+                            displayedMonth = (displayedMonth.clone() as Calendar).apply {
+                                add(
+                                    Calendar.MONTH,
+                                    -1
+                                )
+                            }
+                        }
                 )
                 Text(
                     text = SimpleDateFormat("MMMM yyyy", Locale.US).format(displayedMonth.time),
@@ -691,9 +757,16 @@ fun CalendarOverlay(initialDate: Calendar, onDismiss: () -> Unit, onDateSelected
                 Icon(
                     painter = painterResource(id = R.drawable.arrow_side_line_right),
                     contentDescription = "Next Month",
-                    modifier = Modifier.size(24.dp).clickable {
-                        displayedMonth = (displayedMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                    }
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable {
+                            displayedMonth = (displayedMonth.clone() as Calendar).apply {
+                                add(
+                                    Calendar.MONTH,
+                                    1
+                                )
+                            }
+                        }
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))

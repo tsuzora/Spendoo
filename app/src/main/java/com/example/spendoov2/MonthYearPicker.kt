@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.time.LocalDate
 import java.time.Month
-import java.util.Locale
 
 @Composable
 fun MonthYearPickerOverlay(

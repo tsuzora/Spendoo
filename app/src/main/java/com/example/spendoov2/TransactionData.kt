@@ -43,7 +43,7 @@ fun generateTransactionData(num: Int) {
         val catName = catTransaction.key
         val icon = catTransaction.value
         val date = (1..28).random() // Menggunakan rentang tanggal yang lebih realistis
-        val monthIndex = (0..11).random()
+        val monthIndex = (4..10).random()
         val monthName = java.text.DateFormatSymbols().months[monthIndex]
         val year = 2025
 
