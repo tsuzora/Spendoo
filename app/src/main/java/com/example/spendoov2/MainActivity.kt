@@ -57,7 +57,15 @@ import com.example.spendoov2.ui.theme.poppinsTextStyle
 import com.example.spendoov2.ui.theme.unboundedFamily
 import java.time.LocalDate
 import java.util.Calendar
-
+import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +94,8 @@ fun Pages(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val auth: FirebaseAuth = FirebaseAuth.getInstance()
+
     var pageType by remember { mutableStateOf("home") }
     var contentType by remember { mutableStateOf("all") }
 
@@ -163,6 +173,7 @@ fun Pages(
                 message = "Are you sure you want to logout?",
                 onConfirm = {
                     showLogout = false
+                    auth.signOut()
                     onLogout()
                 },
                 onCancel = { showLogout = false }
@@ -345,6 +356,45 @@ fun PageContent(
 
 @Composable
 fun QuickInfoCard(modifier: Modifier = Modifier) {
+    // State baru untuk menampung data
+    var transactions by remember { mutableStateOf(emptyList<TransactionData>()) }
+
+    // Dapatkan instance Auth dan Firestore
+    val auth = FirebaseAuth.getInstance()
+    val db = Firebase.firestore
+    val currentUser = auth.currentUser
+
+    // Effect ini akan berjalan saat composable dimuat & jika currentUser berubah
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            // --- MODE LOGIN: Ambil data dari Firestore ---
+            db.collection("users")
+                .document(currentUser.uid)
+                .collection("transactions")
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.w("Firestore", "Listen failed.", e)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val firestoreTransactions = snapshot.documents.map { doc ->
+                            doc.toObject(TransactionData::class.java)?.copy(id = doc.id)
+                        }
+                        transactions = firestoreTransactions.filterNotNull()
+                    }
+                }
+        } else {
+            // --- MODE GUEST: Ambil data dari List lokal ---
+            transactions = TransactionLists.toList()
+        }
+    }
+
+    val userName = if (currentUser != null && !currentUser.displayName.isNullOrBlank()) {
+        currentUser.displayName // Ambil nama dari profil Auth
+    } else {
+        "Guest" // Fallback
+    }
+
     Column(
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
@@ -360,7 +410,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
             ) {
 
                 Text(
-                    text = "Hi,\nGuest",
+                    text = "Hi,\n$userName",
                     fontSize = 32.sp,
                     textAlign = TextAlign.Left,
                     modifier = modifier.fillMaxWidth()
@@ -371,7 +421,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
                     modifier = modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Rp${AvailableBalance()}",
+                    text = "Rp${AvailableBalance(transactions)}",
                     fontSize = 26.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = modifier.fillMaxWidth()

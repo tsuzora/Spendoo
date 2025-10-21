@@ -39,6 +39,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect // <-- TAMBAHKAN
+import com.google.firebase.auth.FirebaseAuth // <-- TAMBAHKAN
+import com.google.firebase.firestore.ktx.firestore // <-- TAMBAHKAN
+import com.google.firebase.ktx.Firebase // <-- TAMBAHKAN
+import android.util.Log // <-- TAMBAHKAN
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -96,26 +101,56 @@ fun AnalyzeAndAdviceScreen(navController: NavController) {
     var selectedYearMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedYear by remember { mutableStateOf(Year.now()) }
 
+    // --- TAMBAHKAN LOGIKA PENGAMBILAN DATA ---
+    var allTransactions by remember { mutableStateOf(emptyList<TransactionData>()) }
+    val auth = FirebaseAuth.getInstance()
+    val db = Firebase.firestore
+    val currentUser = auth.currentUser
+
+    LaunchedEffect(currentUser) { // Hanya perlu dijalankan sekali saat user berubah
+        if (currentUser != null) {
+            // Mode Login: Ambil data dari Firestore
+            db.collection("users")
+                .document(currentUser.uid)
+                .collection("transactions")
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.w("Firestore", "Listen failed.", e)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val firestoreTransactions = snapshot.documents.map { doc ->
+                            doc.toObject(TransactionData::class.java)?.copy(id = doc.id)
+                        }
+                        allTransactions = firestoreTransactions.filterNotNull()
+                    }
+                }
+        } else {
+            // Mode Guest: Ambil data dari List lokal
+            allTransactions = TransactionLists.toList()
+        }
+    }
+
     // This will reactively filter transactions whenever the selected period changes
-    val (transactionsForPeriod, previousPeriodTransactions) = remember(selectedPeriod, selectedYearMonth, selectedYear) {
+    val (transactionsForPeriod, previousPeriodTransactions) = remember(selectedPeriod, selectedYearMonth, selectedYear, allTransactions) {
         val current = when (selectedPeriod) {
-            "Monthly" -> TransactionLists.filter {
+            "Monthly" -> allTransactions.filter {
                 it.year == selectedYearMonth.year && it.month.equals(selectedYearMonth.month.name, ignoreCase = true)
             }
-            "Yearly" -> TransactionLists.filter { it.year == selectedYear.value }
+            "Yearly" -> allTransactions.filter { it.year == selectedYear.value }
             else -> emptyList()
         }
 
         val previous = when (selectedPeriod) {
             "Monthly" -> {
                 val prevMonth = selectedYearMonth.minusMonths(1)
-                TransactionLists.filter {
+                allTransactions.filter {
                     it.year == prevMonth.year && it.month.equals(prevMonth.month.name, ignoreCase = true)
                 }
             }
             "Yearly" -> {
                 val prevYear = selectedYear.minusYears(1)
-                TransactionLists.filter { it.year == prevYear.value }
+                allTransactions.filter { it.year == prevYear.value }
             }
             else -> emptyList()
         }

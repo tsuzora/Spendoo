@@ -2,6 +2,10 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.gms.google.services)
+
+
+//    id("com.google.gms.google-services")
 }
 
 android {
@@ -51,6 +55,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.ui)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -58,4 +63,24 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    //implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
+    implementation("com.google.firebase:firebase-analytics")
+
+    // Firebase Bill of Materials (BOM) - Mengatur versi
+    implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
+
+    // 1. Firebase Authentication
+    implementation("com.google.firebase:firebase-auth")
+
+    // 2. Cloud Firestore (Database)
+    implementation("com.google.firebase:firebase-firestore")
+
+    implementation(platform(libs.firebase.bom))
+
+    // Add the dependency for Firebase Authentication without a version number
+
+
+    // Your other dependencies
+    implementation(libs.androidx.core.ktx)
 }

@@ -1,5 +1,6 @@
 package com.example.spendoov2
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,16 +39,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.spendoov2.ui.theme.interFamily
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun SignUpPage(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val auth: FirebaseAuth = FirebaseAuth.getInstance()
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null)}
 
     Box(
         modifier = modifier
@@ -209,9 +213,32 @@ fun SignUpPage(
             // Sign Up Button
             Button(
                 onClick = {
+                    errorMessage = null
                     // Validate and navigate back to login
-                    if (password == confirmPassword && fullName.isNotBlank() && email.isNotBlank()) {
-                        onNavigateBack()
+                    if (password != confirmPassword) {
+                        errorMessage = "Password dan Konfirmasi Password tidak cocok."
+                    } else if (fullName.isBlank() || email.isBlank() || password.isBlank()) {
+                        errorMessage = "Semua kolom harus diisi."
+                    } else {
+                        // 3. Jika lolos validasi lokal, coba Firebase
+                        auth.createUserWithEmailAndPassword(email, password)
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    onNavigateBack()
+                                } else {
+                                    // 4. Tangani error dari Firebase
+                                    val exception = task.exception
+                                    errorMessage = when {
+                                        exception?.message?.contains("email address is already in use") == true ->
+                                            "Email ini sudah terdaftar."
+                                        exception?.message?.contains("Weak Password") == true ->
+                                            "Password terlalu lemah. (Minimal 6 karakter)"
+                                        else ->
+                                            task.exception?.message ?: "Sign up gagal. Coba lagi."
+                                    }
+                                    Log.w("SignUp", "createUserWithEmail:failure", task.exception)
+                                }
+                            }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(
@@ -226,6 +253,16 @@ fun SignUpPage(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 64.dp, vertical = 8.dp)
+                )
+            }
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = errorMessage!!,
+                    color = Color.Red, // Gunakan warna error
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
             }
         }

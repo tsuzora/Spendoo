@@ -1,5 +1,6 @@
 package com.example.spendoov2
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +35,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.spendoov2.ui.theme.interFamily
+import com.google.firebase.auth.FirebaseAuth
 
+
+val auth: FirebaseAuth = FirebaseAuth.getInstance()
 @Composable
 fun LoginPage(
     onNavigateToHome: () -> Unit,
@@ -43,7 +47,7 @@ fun LoginPage(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -122,7 +126,27 @@ fun LoginPage(
 
             // Log In Button
             Button(
-                onClick = { onNavigateToHome() },
+                onClick = {
+                    // 1. Hapus error lama
+                    errorMessage = null
+
+                    // 2. Validasi lokal
+                    if (email.isBlank() || password.isBlank()) {
+                        errorMessage = "Email dan Password harus diisi."
+                    } else {
+                        // 3. Coba login Firebase
+                        auth.signInWithEmailAndPassword(email, password)
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    onNavigateToHome()
+                                } else {
+                                    // 4. Tangani error dari Firebase
+                                    Log.w("Login", "signInWithEmail:failure", task.exception)
+                                    errorMessage = "Login gagal. Periksa kembali email dan password Anda."
+                                }
+                            }
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White
                 ),
@@ -136,6 +160,17 @@ fun LoginPage(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 64.dp, vertical = 8.dp)
+                )
+            }
+
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(16.dp)) // Beri sedikit jarak
+                Text(
+                    text = errorMessage!!,
+                    color = Color.Red, // Warna error
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
             }
 

@@ -2,6 +2,7 @@
 
 package com.example.spendoov2
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,6 +59,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.auth.FirebaseAuth
 
 // Definisikan warna di sini agar mudah diakses
 val AddIncomeBGColor = Color(0xFF54E871)
@@ -70,6 +74,10 @@ fun AddTransaction(
     transactionId: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val auth = FirebaseAuth.getInstance()
+    val db = Firebase.firestore
+    val currentUser = auth.currentUser
+
     // Cari transaksi berdasarkan ID jika dalam mode edit
     val transactionToEdit = transactionId?.let { id ->
         TransactionLists.find { it.id == id && id != "new" }
@@ -244,24 +252,43 @@ fun AddTransaction(
                                 type = selectedType.lowercase(),
                                 category = selectedCategory!!.first,
                                 date = selectedDate.get(Calendar.DAY_OF_MONTH),
-                                month = selectedDate.getDisplayName(Calendar.MONTH, Calendar.LONG, Locale.US) ?: "",
+                                month = selectedDate.getDisplayName(
+                                    Calendar.MONTH,
+                                    Calendar.LONG,
+                                    Locale.US
+                                ) ?: "",
                                 year = selectedDate.get(Calendar.YEAR),
                                 image = selectedCategory!!.second,
                                 amount = finalAmount
                             )
-
-                            if (isEditMode && transactionToEdit != null) {
-                                // Update transaksi
-                                val index = TransactionLists.indexOfFirst { it.id == transactionToEdit.id }
-                                if (index != -1) {
-                                    TransactionLists[index] = newOrUpdatedTransaction
-                                }
+                            if (currentUser != null) {
+                                // --- MODE LOGIN: Simpan ke Firestore ---
+                                db.collection("users") // Koleksi user
+                                    .document(currentUser.uid) // Document untuk user ini
+                                    .collection("transactions") // Sub-koleksi transaksi
+                                    .document(newOrUpdatedTransaction.id) // Document untuk transaksi ini
+                                    .set(newOrUpdatedTransaction) // Simpan data
+                                    .addOnSuccessListener {
+                                        Log.d("Firestore", "Transaction saved!")
+                                        navController.popBackStack()
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.w("Firestore", "Error writing document", e)
+                                        // Tampilkan error
+                                    }
                             } else {
-                                // Tambah transaksi baru
-                                TransactionLists.add(0, newOrUpdatedTransaction)
+                                // --- MODE GUEST: Simpan ke List lokal (kode Anda yang sudah ada) ---
+                                if (isEditMode && transactionToEdit != null) {
+                                    val index =
+                                        TransactionLists.indexOfFirst { it.id == transactionToEdit.id }
+                                    if (index != -1) {
+                                        TransactionLists[index] = newOrUpdatedTransaction
+                                    }
+                                } else {
+                                    TransactionLists.add(0, newOrUpdatedTransaction)
+                                }
+                                navController.popBackStack()
                             }
-
-                            navController.popBackStack()
                         }
                     }
                 )
@@ -316,9 +343,34 @@ fun AddTransaction(
             ConfirmationOverlay(
                 message = "Are you sure you want to delete this transaction?",
                 onConfirm = {
-                    transactionToEdit?.let { TransactionLists.remove(it) }
-                    showDeleteConfirmation = false
-                    navController.popBackStack()
+                    // Pastikan transactionToEdit tidak null
+                    transactionToEdit?.let { transaction ->
+
+                        // TENTUKAN HAPUS LOKAL ATAU FIREBASE
+                        if (currentUser != null) {
+                            // --- MODE LOGIN: Hapus dari Firestore ---
+                            db.collection("users")
+                                .document(currentUser.uid)
+                                .collection("transactions")
+                                .document(transaction.id) // Gunakan ID transaksi
+                                .delete()
+                                .addOnSuccessListener {
+                                    Log.d("Firestore", "Transaction deleted!")
+                                    showDeleteConfirmation = false
+                                    navController.popBackStack() // Kembali setelah sukses
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.w("Firestore", "Error deleting document", e)
+                                    // Tampilkan error (bisa pakai Toast atau state)
+                                    showDeleteConfirmation = false
+                                }
+                        } else {
+                            // --- MODE GUEST: Hapus dari List lokal ---
+                            TransactionLists.remove(transaction)
+                            showDeleteConfirmation = false
+                            navController.popBackStack() // Kembali setelah sukses
+                        }
+                    }
                 },
                 onCancel = { showDeleteConfirmation = false }
             )

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "766263715089",
+    "project_id": "spendoo-888",
+    "storage_bucket": "spendoo-888.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:766263715089:android:fb4eb3ce16049b21d818b0",
+        "android_client_info": {
+          "package_name": "com.example.spendoov2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoWTd2tOx-EOcTaezk71lCA_4Ii8jfVPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

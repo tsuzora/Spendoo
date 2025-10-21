@@ -36,6 +36,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.spendoov2.ui.theme.GreenMid
 import com.example.spendoov2.ui.theme.poppinsTextStyle
+import androidx.compose.runtime.LaunchedEffect // <-- TAMBAHKAN
+import com.google.firebase.auth.FirebaseAuth // <-- TAMBAHKAN
+import com.google.firebase.firestore.ktx.firestore // <-- TAMBAHKAN
+import com.google.firebase.ktx.Firebase // <-- TAMBAHKAN
+import android.util.Log // <-- TAMBAHKAN
 import java.time.LocalDate
 
 @Composable
@@ -44,13 +49,45 @@ fun MonthlyList(
     onTransactionClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var transactions by remember { mutableStateOf(emptyList<TransactionData>()) }
+    val auth = FirebaseAuth.getInstance()
+    val db = Firebase.firestore
+    val currentUser = auth.currentUser
+
+    LaunchedEffect(currentUser, selectedDate) { // Juga bereaksi thd perubahan tanggal
+        if (currentUser != null) {
+            // Mode Login: Ambil data dari Firestore
+            db.collection("users")
+                .document(currentUser.uid)
+                .collection("transactions")
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.w("Firestore", "Listen failed.", e)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val firestoreTransactions = snapshot.documents.map { doc ->
+                            doc.toObject(TransactionData::class.java)?.copy(id = doc.id)
+                        }
+                        transactions = firestoreTransactions.filterNotNull()
+                    }
+                }
+        } else {
+            // Mode Guest: Ambil data dari List lokal
+            transactions = TransactionLists.toList()
+        }
+    }
+    // --- AKHIR DARI LOGIKA PENGAMBILAN DATA ---
+
     val monthName = selectedDate.month.name.lowercase().replaceFirstChar { it.titlecase() }
     val year = selectedDate.year
 
+    // --- UBAH INI ---
     // Filter transaksi berdasarkan bulan dan tahun yang dipilih
-    val monthlyTransactions = TransactionLists.filter {
+    val monthlyTransactions = transactions.filter { // <-- GANTI 'TransactionLists' menjadi 'transactions'
         it.month.equals(monthName, ignoreCase = true) && it.year == year
     }
+    // --- AKHIR PERUBAHAN ---
 
     // Hitung total income dan expense untuk bulan yang dipilih
     val totalIncome = monthlyTransactions.filter { it.type == "income" }.sumOf { it.amount }

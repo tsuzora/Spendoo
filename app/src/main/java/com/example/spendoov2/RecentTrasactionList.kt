@@ -1,5 +1,6 @@
 package com.example.spendoov2
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,16 +37,25 @@ import com.example.spendoov2.ui.theme.poppinsTextStyle
 import java.time.LocalDate
 import java.time.Month
 import java.util.Locale
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.Query
 
 data class TransactionData(
-    val id: String,
-    val type: String,
-    val category: String,
-    val date: Int,
-    val month: String,
-    val year: Int,
-    val image: Int,
-    val amount: Int
+    val id: String = "",
+    val type: String = "",
+    val category: String = "",
+    val date: Int = 0,
+    val month: String = "",
+    val year: Int = 0,
+    val image: Int = 0,
+    val amount: Int = 0
 )
 
 var TransactionLists = mutableListOf<TransactionData>()
@@ -57,14 +67,55 @@ fun RecentTransactionList(
     onTransactionClick: (String) -> Unit,
     modifier: Modifier = Modifier)
 {
+    // State baru untuk menampung data, baik dari lokal maupun Firestore
+    var transactions by remember { mutableStateOf(emptyList<TransactionData>()) }
+
+    // Dapatkan instance Auth dan Firestore
+    val auth = FirebaseAuth.getInstance()
+    val db = Firebase.firestore
+    val currentUser = auth.currentUser
+
+    // Effect ini akan berjalan saat composable dimuat & jika currentUser berubah
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            // --- MODE LOGIN: Ambil data dari Firestore ---
+            db.collection("users")
+                .document(currentUser.uid)
+                .collection("transactions")
+                // Urutkan berdasarkan data terbaru (perlu index di Firestore)
+                // .orderBy("year", Query.Direction.DESCENDING)
+                // .orderBy("month", Query.Direction.DESCENDING)
+                // .orderBy("date", Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.w("Firestore", "Listen failed.", e)
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null) {
+                        // Map dokumen Firestore ke List<TransactionData>
+                        val firestoreTransactions = snapshot.documents.map { doc ->
+                            // Gunakan .toObject dan tambahkan ID dokumen
+                            doc.toObject(TransactionData::class.java)?.copy(id = doc.id)
+                        }
+                        transactions = firestoreTransactions.filterNotNull()
+                    }
+                }
+        } else {
+            // --- MODE GUEST: Ambil data dari List lokal ---
+            // (Kita buat salinan agar UI recompose jika list lokal berubah)
+            transactions = TransactionLists.toList()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
     ) {
         val typedTransactions = if (filterType == null) {
-            TransactionLists
+            transactions
         } else {
-            TransactionLists.filter { it.type == filterType }
+            transactions.filter { it.type == filterType }
         }
 
         //Filter berdasarkan tanggal yang dipilih
