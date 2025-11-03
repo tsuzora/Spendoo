@@ -83,4 +83,6 @@ dependencies {
 
     // Your other dependencies
     implementation(libs.androidx.core.ktx)
+
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }
