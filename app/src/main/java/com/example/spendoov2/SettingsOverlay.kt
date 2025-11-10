@@ -121,7 +121,6 @@ private fun ExportMenuItem(text: String, onClick: () -> Unit) {
     )
 }
 
-
 @Composable
 fun ConfirmationOverlay(
     message: String,

@@ -78,8 +78,20 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
 
-    // Add the dependency for Firebase Authentication without a version number
+    // For ViewModel in Compose
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
 
+    // For observing StateFlows correctly
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
+
+    // For launching coroutines in the ViewModel
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3")
+
+    // For cleaner Firebase async calls (optional, but recommended)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // For JSON conversion
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // Your other dependencies
     implementation(libs.androidx.core.ktx)

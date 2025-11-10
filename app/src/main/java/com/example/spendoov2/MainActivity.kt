@@ -66,6 +66,11 @@ import androidx.compose.runtime.setValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import android.util.Log
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,9 +97,36 @@ class MainActivity : ComponentActivity() {
 fun Pages(
     navController: NavController,
     onLogout: () -> Unit,
+    exportViewModel: ExportViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    val auth: FirebaseAuth? = try {
+        FirebaseAuth.getInstance()
+    } catch (ex: Exception) {
+        Log.e("AuthInit", "Failed to get Firebase Instance", ex)
+        null
+    }
+
+    // 2. Observe ViewModel state for UI feedback
+    val exportUiState by exportViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // 3. Handle success/error feedback (Toasts)
+    LaunchedEffect(exportUiState) {
+        when (val state = exportUiState) {
+            is ExportState.Success -> {
+                Toast.makeText(context, "Export successful! Check your Downloads folder.", Toast.LENGTH_LONG).show()
+                delay(2000)
+                exportViewModel.resetState()
+            }
+            is ExportState.Error -> {
+                Toast.makeText(context, "Export failed: ${state.message}", Toast.LENGTH_LONG).show()
+                delay(3000)
+                exportViewModel.resetState()
+            }
+            else -> {}
+        }
+    }
 
     var pageType by remember { mutableStateOf("home") }
     var contentType by remember { mutableStateOf("all") }
@@ -162,9 +194,18 @@ fun Pages(
         if (showExport) {
             ExportOptionsOverlay(
                 onDismiss = { showExport = false },
-                onAllTransactionsClick = { /* TODO */ },
-                onDailyClick = { /* TODO */ },
-                onMonthlyClick = { /* TODO */ }
+                onAllTransactionsClick = {
+                    showExport = false
+                    exportViewModel.exportUserData()
+                },
+                onDailyClick = {
+                    showExport = false
+                    Toast.makeText(context, "Daily export coming soon!", Toast.LENGTH_SHORT).show()
+                },
+                onMonthlyClick = {
+                    showExport = false
+                    Toast.makeText(context, "Daily export coming soon!", Toast.LENGTH_SHORT).show()
+                }
             )
         }
 
@@ -173,7 +214,7 @@ fun Pages(
                 message = "Are you sure you want to logout?",
                 onConfirm = {
                     showLogout = false
-                    auth.signOut()
+                    auth?.signOut()
                     onLogout()
                 },
                 onCancel = { showLogout = false }
@@ -360,9 +401,14 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
     var transactions by remember { mutableStateOf(emptyList<TransactionData>()) }
 
     // Dapatkan instance Auth dan Firestore
-    val auth = FirebaseAuth.getInstance()
+    val auth: FirebaseAuth? = try {
+        FirebaseAuth.getInstance()
+    } catch (ex: Exception) {
+        Log.e("AuthInit", "Failed to get Firebase Instance", ex)
+        null
+    }
     val db = Firebase.firestore
-    val currentUser = auth.currentUser
+    val currentUser = auth?.currentUser
 
     // Effect ini akan berjalan saat composable dimuat & jika currentUser berubah
     LaunchedEffect(currentUser) {
