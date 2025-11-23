@@ -1,6 +1,5 @@
 package com.example.spendoov2
 
-import com.example.spendoov2.data.LocalData
 import java.util.UUID
 val type = listOf<String>("income", "expense")
 val categoryIncome = mapOf<String, Int>(
@@ -48,7 +47,7 @@ fun generateTransactionData(num: Int) {
         val monthName = java.text.DateFormatSymbols().months[monthIndex]
         val year = 2025
 
-        LocalData.TransactionLists.add(
+        TransactionLists.add(
             TransactionData(
                 id = UUID.randomUUID().toString(), // Menambahkan ID unik untuk setiap transaksi
                 type = transactionType,

@@ -59,18 +59,25 @@ import java.time.LocalDate
 import java.util.Calendar
 import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import android.util.Log
-import android.widget.Toast
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.delay
+import com.google.firebase.auth.UserProfileChangeRequest
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.window.Dialog
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,36 +104,9 @@ class MainActivity : ComponentActivity() {
 fun Pages(
     navController: NavController,
     onLogout: () -> Unit,
-    exportViewModel: ExportViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val auth: FirebaseAuth? = try {
-        FirebaseAuth.getInstance()
-    } catch (ex: Exception) {
-        Log.e("AuthInit", "Failed to get Firebase Instance", ex)
-        null
-    }
-
-    // 2. Observe ViewModel state for UI feedback
-    val exportUiState by exportViewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-
-    // 3. Handle success/error feedback (Toasts)
-    LaunchedEffect(exportUiState) {
-        when (val state = exportUiState) {
-            is ExportState.Success -> {
-                Toast.makeText(context, "Export successful! Check your Downloads folder.", Toast.LENGTH_LONG).show()
-                delay(2000)
-                exportViewModel.resetState()
-            }
-            is ExportState.Error -> {
-                Toast.makeText(context, "Export failed: ${state.message}", Toast.LENGTH_LONG).show()
-                delay(3000)
-                exportViewModel.resetState()
-            }
-            else -> {}
-        }
-    }
+    val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     var pageType by remember { mutableStateOf("home") }
     var contentType by remember { mutableStateOf("all") }
@@ -154,8 +134,7 @@ fun Pages(
                     content = pageType,
                     onClick = { newTab -> contentType = newTab },
                     onNavigateToPage = { newPage -> pageType = newPage },
-                    navController = navController,
-                    onSettingsClick = { showSettings = true } // Tampilkan settings overlay
+                    navController = navController
                 )
                 PageContent(
                     content = contentType,
@@ -172,52 +151,6 @@ fun Pages(
             BottomNav(
                 onClick = { action -> contentType = action },
                 navController = navController
-            )
-        }
-
-        // Overlays
-        if (showSettings) {
-            SettingsOverlay(
-                onDismiss = { showSettings = false },
-                onExportClick = {
-                    showSettings = false
-                    showExport = true
-                },
-                onEditProfileClick = { /* TODO */ },
-                onLogoutClick = {
-                    showSettings = false
-                    showLogout = true
-                }
-            )
-        }
-
-        if (showExport) {
-            ExportOptionsOverlay(
-                onDismiss = { showExport = false },
-                onAllTransactionsClick = {
-                    showExport = false
-                    exportViewModel.exportUserData()
-                },
-                onDailyClick = {
-                    showExport = false
-                    Toast.makeText(context, "Daily export coming soon!", Toast.LENGTH_SHORT).show()
-                },
-                onMonthlyClick = {
-                    showExport = false
-                    Toast.makeText(context, "Daily export coming soon!", Toast.LENGTH_SHORT).show()
-                }
-            )
-        }
-
-        if (showLogout) {
-            ConfirmationOverlay(
-                message = "Are you sure you want to logout?",
-                onConfirm = {
-                    showLogout = false
-                    auth?.signOut()
-                    onLogout()
-                },
-                onCancel = { showLogout = false }
             )
         }
 
@@ -260,7 +193,6 @@ fun TopBanner(
     onNavigateToPage: (String) -> Unit,
     navController: NavController,
     textStyle: TextStyle = interTextStyle,
-    onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     CompositionLocalProvider(LocalTextStyle provides textStyle) {
@@ -288,11 +220,11 @@ fun TopBanner(
                                 .clickable { navController.navigate("search_screen") }
                         )
                         Image(
-                            painter = painterResource(R.drawable.dot_option),
-                            contentDescription = "Options",
+                            painter = painterResource(R.drawable.profile_icon),
+                            contentDescription = "Profile",
                             modifier = modifier
                                 .size(35.dp)
-                                .clickable(onClick = onSettingsClick) // Perbaikan: Hanya satu clickable
+                                .clickable{navController.navigate("profile_screen")} // Perbaikan: Hanya satu clickable
                         )
                     }
                 }
@@ -397,24 +329,39 @@ fun PageContent(
 
 @Composable
 fun QuickInfoCard(modifier: Modifier = Modifier) {
-    // State baru untuk menampung data
+    // State untuk menampung data
     var transactions by remember { mutableStateOf(emptyList<TransactionData>()) }
+    var userName by remember { mutableStateOf("Guest") }
 
     // Dapatkan instance Auth dan Firestore
-    val auth: FirebaseAuth? = try {
-        FirebaseAuth.getInstance()
-    } catch (ex: Exception) {
-        Log.e("AuthInit", "Failed to get Firebase Instance", ex)
-        null
-    }
+    val auth = FirebaseAuth.getInstance()
     val db = Firebase.firestore
-    val currentUser = auth?.currentUser
 
-    // Effect ini akan berjalan saat composable dimuat & jika currentUser berubah
-    LaunchedEffect(currentUser) {
+    // DisposableEffect akan mengelola listener kita.
+    // Ini akan berjalan saat composable dimuat dan akan 'membersihkan' (onDispose)
+    // listener saat composable hancur/ditinggalkan.
+    DisposableEffect(auth) {
+        // 1. Buat Listener Status Autentikasi
+        //    Listener ini akan bereaksi terhadap Login, Logout, DAN pembaruan profil
+        //    (karena pembaruan profil biasanya memicu pembaruan token).
+        val authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            val currentUser = firebaseAuth.currentUser
+            // Perbarui state 'userName' yang akan memicu recomposition
+            userName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Guest"
+        }
+        auth.addAuthStateListener(authListener)
+
+        // 2. Buat Listener Transaksi
+        val currentUser = auth.currentUser
+        var transactionListener: com.google.firebase.firestore.ListenerRegistration? = null
+
         if (currentUser != null) {
-            // --- MODE LOGIN: Ambil data dari Firestore ---
-            db.collection("users")
+            // --- MODE LOGIN ---
+            // Set nama awal saat pertama kali dimuat
+            userName = currentUser.displayName?.takeIf { it.isNotBlank() } ?: "Guest"
+
+            // Pasang listener snapshot untuk transaksi
+            transactionListener = db.collection("users")
                 .document(currentUser.uid)
                 .collection("transactions")
                 .addSnapshotListener { snapshot, e ->
@@ -430,17 +377,21 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
                     }
                 }
         } else {
-            // --- MODE GUEST: Ambil data dari List lokal ---
+            // --- MODE GUEST ---
+            userName = "Guest"
             transactions = TransactionLists.toList()
+        }
+
+        // 3. Fungsi Cleanup (PENTING)
+        //    Ini akan dijalankan ketika composable hancur (misal: pindah layar)
+        //    untuk mencegah kebocoran memori.
+        onDispose {
+            auth.removeAuthStateListener(authListener)
+            transactionListener?.remove() // Hentikan pendengar snapshot
         }
     }
 
-    val userName = if (currentUser != null && !currentUser.displayName.isNullOrBlank()) {
-        currentUser.displayName // Ambil nama dari profil Auth
-    } else {
-        "Guest" // Fallback
-    }
-
+    // --- UI (Sama seperti kode Anda sebelumnya) ---
     Column(
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
@@ -456,7 +407,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
             ) {
 
                 Text(
-                    text = "Hi,\n$userName",
+                    text = "Hi,\n$userName", // <-- Sekarang menggunakan state 'userName'
                     fontSize = 32.sp,
                     textAlign = TextAlign.Left,
                     modifier = modifier.fillMaxWidth()
@@ -467,7 +418,7 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
                     modifier = modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Rp${AvailableBalance(transactions)}",
+                    text = "Rp${AvailableBalance(transactions)}", // <-- Menggunakan state 'transactions'
                     fontSize = 26.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = modifier.fillMaxWidth()
@@ -476,6 +427,83 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
         }
     }
 }
+
+//@Composable
+//fun QuickInfoCard(modifier: Modifier = Modifier) {
+//    // State baru untuk menampung data
+//    var transactions by remember { mutableStateOf(emptyList<TransactionData>()) }
+//
+//    // Dapatkan instance Auth dan Firestore
+//    val auth = FirebaseAuth.getInstance()
+//    val db = Firebase.firestore
+//    val currentUser = auth.currentUser
+//
+//    // Effect ini akan berjalan saat composable dimuat & jika currentUser berubah
+//    LaunchedEffect(currentUser) {
+//        if (currentUser != null) {
+//            // --- MODE LOGIN: Ambil data dari Firestore ---
+//            db.collection("users")
+//                .document(currentUser.uid)
+//                .collection("transactions")
+//                .addSnapshotListener { snapshot, e ->
+//                    if (e != null) {
+//                        Log.w("Firestore", "Listen failed.", e)
+//                        return@addSnapshotListener
+//                    }
+//                    if (snapshot != null) {
+//                        val firestoreTransactions = snapshot.documents.map { doc ->
+//                            doc.toObject(TransactionData::class.java)?.copy(id = doc.id)
+//                        }
+//                        transactions = firestoreTransactions.filterNotNull()
+//                    }
+//                }
+//        } else {
+//            // --- MODE GUEST: Ambil data dari List lokal ---
+//            transactions = TransactionLists.toList()
+//        }
+//    }
+//
+//    val userName = if (currentUser != null && !currentUser.displayName.isNullOrBlank()) {
+//        currentUser.displayName // Ambil nama dari profil Auth
+//    } else {
+//        "Guest" // Fallback
+//    }
+//
+//    Column(
+//        verticalArrangement = Arrangement.SpaceBetween,
+//        modifier = modifier
+//            .padding(28.dp, 0.dp)
+//            .clip(RoundedCornerShape(32.dp))
+//            .background(CardInfoBackgroundColor)
+//            .height(170.dp)
+//            .fillMaxWidth()
+//    ) {
+//        CompositionLocalProvider(LocalTextStyle provides poppinsTextStyle) {
+//            Column(
+//                modifier = modifier.padding(18.dp, 12.dp)
+//            ) {
+//
+//                Text(
+//                    text = "Hi,\n$userName",
+//                    fontSize = 32.sp,
+//                    textAlign = TextAlign.Left,
+//                    modifier = modifier.fillMaxWidth()
+//                )
+//                Text(
+//                    text = "Available Balance",
+//                    fontSize = 12.sp,
+//                    modifier = modifier.fillMaxWidth()
+//                )
+//                Text(
+//                    text = "Rp${AvailableBalance(transactions)}",
+//                    fontSize = 26.sp,
+//                    fontWeight = FontWeight.SemiBold,
+//                    modifier = modifier.fillMaxWidth()
+//                )
+//            }
+//        }
+//    }
+//}
 
 @Composable
 fun BottomNav(
@@ -554,6 +582,17 @@ fun Spendoo(onLogout: () -> Unit = {}) {
         composable("statistics_screen") {
             AnalyzeAndAdviceScreen(navController = navController)
         }
+
+        composable("profile_screen") {
+            ProfileScreen(navController = navController, onLogout = onLogout)
+        }
+        composable("reset_password_screen") {
+            ResetPasswordScreen(navController = navController)
+        }
+
+        composable("forgot_password_screen") {
+            ForgotPasswordPage(onNavigateBack = { navController.popBackStack() })
+        }
     }
 }
 
@@ -583,339 +622,380 @@ fun RecentTransactionsHeader(modifier: Modifier = Modifier) {
     }
 }
 
-//@Composable
-//fun Pages(
-//    navController: NavController,
-//    onLogout: () -> Unit,
-//    modifier: Modifier = Modifier
-//) {
-//    var pageType by remember { mutableStateOf("home") }
-//    var contentType by remember { mutableStateOf("all") }
-//
-//    var showSettings by remember {mutableStateOf(false)}
-//    var showExport by remember {mutableStateOf(false)}
-//    var showLogout by remember {mutableStateOf(false)}
-//
-//    Column(
-//        modifier = modifier
-//            .fillMaxHeight()
-//            .fillMaxWidth()
-//            .background(MainBackgroundColor)
-//    ) {
-//        Column(
-//            modifier = modifier
-//                .weight(1f)
-//        ) {
-//            TopBanner(
-//                contentType,
-//                pageType,
-//                onClick = { newTab ->
-//                    contentType = newTab
-//                },
-//                onNavigateToPage = { newPage ->
-//                    pageType = newPage
-//                },
-//                navController = navController,
-//                onSettingsClick = {showSettings = true})
-//            PageContent(
-//                contentType,
-//                pageType
-//            )
-//
-//        }
-//        BottomNav(
-//            onClick = { action ->
-//                contentType = action
-//            },
-//            navController = navController
-//        )
-//    }
-//    // 1. Tampilkan Settings Overlay
-//    if (showSettings) {
-//        SettingsOverlay(
-//            onDismiss = { showSettings = false },
-//            onExportClick = {
-//                showSettings = false // Sembunyikan settings
-//                showExport = true    // Tampilkan export options
-//            },
-//            onEditProfileClick = { /* TODO: Handle edit profile click */ },
-//            onLogoutClick = {
-//                showSettings = false // Sembunyikan settings
-//                showLogout = true    // Tampilkan konfirmasi logout
-//            }
-//        )
-//    }
-//
-//    // 2. Tampilkan Export Options Overlay
-//    if (showExport) {
-//        ExportOptionsOverlay(
-//            onDismiss = { showExport = false },
-//            onAllTransactionsClick = { /* TODO: Handle export all */ },
-//            onDailyClick = { /* TODO: Handle export daily */ },
-//            onMonthlyClick = { /* TODO: Handle export monthly */ }
-//        )
-//    }
-//
-//    // 3. Tampilkan Logout Confirmation Overlay
-//    if (showLogout) {
-//        ConfirmationOverlay(
-//            message = "Are you sure you want to logout?",
-//            onConfirm = {
-//                showLogout = false // Sembunyikan konfirmasi
-//                onLogout() // Panggil fungsi logout dari AppNavigation
-//            },
-//            onCancel = { showLogout = false } // Sembunyikan saat batal
-//        )
-//    }
-//}
-//
-//@Composable
-//fun TopBanner(
-//    contentTabs: String,
-//    content: String,
-//    onClick: (String) -> Unit,
-//    onNavigateToPage: (String) -> Unit,
-//    navController: NavController,
-//    textStyle: TextStyle = interTextStyle,
-//    modifier: Modifier = Modifier,
-//    onSettingsClick: () -> Unit
-//) {
-//
-//    CompositionLocalProvider(LocalTextStyle provides textStyle) {
-//        Column(
-//            modifier = modifier
-//                .fillMaxWidth()
-//                .padding(24.dp, 35.dp)
-//
-//        ) {
-//            when (content) {
-//                "home" -> {
-//                    Row(
-//                        horizontalArrangement = Arrangement.SpaceBetween,
-//                        verticalAlignment = Alignment.CenterVertically,
-//                        modifier = modifier
-//                            .fillMaxWidth()
-//                    ) {
-//                        LogoContainer(textStyle)
-//                        Row(
-//                            verticalAlignment = Alignment.CenterVertically,
-//                            horizontalArrangement = Arrangement.SpaceBetween,
-//                            modifier = modifier
-//                                .width(75.dp)
-//                                .size(50.dp)
-//                        ) {
-//                            Image(
-//                                painter = painterResource(R.drawable.search_icon),
-//                                contentDescription = "Search",
-//                                modifier = modifier
-//                                    .clickable { navController.navigate("search_screen") }
-//                            )
-//                            Image(
-//                                painter = painterResource(R.drawable.dot_option),
-//                                contentDescription = "Options",
-//                                modifier = modifier
-//                                    .size(35.dp)
-//                                    .clickable {onSettingsClick()}                                    .clickable {navController.navigate("")}
-//                            )
-//                        }
-//                    }
-//                    Spacer(modifier = modifier.padding(5.dp))
-//                    NavBarHome(
-//                        currentTab = contentTabs,
-//                        onClick = onClick
-//                    )
-//                }
-//
-//                "search" -> {
-//
-//                }
-//
-//                "edit" -> {
-//
-//                }
-//            }
-//        }
-//    }
-//}
-//
-//@Composable
-//fun LogoContainer(
-//    textStyle: TextStyle,
-//    modifier: Modifier = Modifier
-//) {
-//    CompositionLocalProvider(LocalTextStyle provides textStyle) {
-//        Column(
-//            modifier = modifier
-//                .width(150.dp)
-//        ) {
-//            Text(
-//                text = "SPENDOO",
-//                fontSize = 20.sp,
-//                fontWeight = FontWeight(700),
-//                fontFamily = unboundedFamily,
-//                modifier = modifier
-//                    .fillMaxWidth()
-//            )
-//            Text(
-//                text = "You Earn, We Learn",
-//                fontFamily = interFamily,
-//                modifier = modifier
-//                    .fillMaxWidth()
-//            )
-//        }
-//    }
-//}
-//
-//@Composable
-//fun PageContent(
-//    content: String,
-//    pageContent: String,
-//    textStyle: TextStyle = interTextStyle,
-//    modifier: Modifier = Modifier
-//) {
-//    when (pageContent) {
-//        "home" -> {
-//            when (content) {
-//                "all" -> {
-//                    QuickInfoCard()
-//                    CompositionLocalProvider(LocalTextStyle provides poppinsTextStyle) {
-//
-//                        Column(
-//                            modifier = modifier
-//                                .padding(28.dp, 12.dp)
-//                                .fillMaxWidth()
-//                        ) {
-//                            Text(
-//                                text = "Recent Transactions",
-//                                fontSize = 18.sp,
-//                                color = Color.White
-//                            )
-//                            Text(
-//                                text = "Last 7 Days",
-//                                fontSize = 12.sp,
-//                                color = Color.White
-//                            )
-//                        }
-//                    }
-//                    RecentTransactionList(filterType = null)
-//                }
-//
-//                "daily" -> {
-//
-//                    var transactionType: String? by remember { mutableStateOf(null) }
-//
-//                    DateNavBar()
-//                    IncomeExpenseNavBar(
-//                        activeTab = transactionType,
-//                        onTabSelected = { newType ->
-//                            transactionType = newType
-//                        }
-//                    )
-//                    RecentTransactionList(filterType = transactionType)
-//                }
-//
-//                "monthly" -> {
-//                    DateNavBar()
-//                    MonthlyList()
-//                }
-//            }
-//        }
-//    }
-//}
-//
-//
-//@Composable
-//fun BottomNav(
-//    onClick: (String) -> Unit,
-//    navController: NavController,
-//    modifier: Modifier = Modifier
-//) {
-//    Row(
-//        horizontalArrangement = Arrangement.SpaceAround,
-//        modifier = modifier
-//            .fillMaxWidth()
-//            .height(70.dp)
-//            .background(BottomNavColor)
-//            .padding(12.dp)
-//    ) {
-//        Image(
-//            painter = painterResource(R.drawable.home_icon),
-//            contentDescription = null,
-//            modifier = modifier
-//                .clickable { onClick("all") }
-//        )
-//        Image(
-//            painter = painterResource(R.drawable.plus_icon),
-//            contentDescription = null,
-//            modifier = modifier
-//                .clickable{navController.navigate("add_screen")}
-//        )
-//        Image(
-//            painter = painterResource(R.drawable.insight_icon),
-//            contentDescription = null,
-//            modifier = modifier
-//        )
-//    }
-//}
-//
-//@Composable
-//fun QuickInfoCard(modifier: Modifier = Modifier) {
-//    Column(
-//        verticalArrangement = Arrangement.SpaceBetween,
-//        modifier = modifier
-//            .padding(28.dp, 0.dp)
-//            .clip(RoundedCornerShape(32.dp))
-//            .background(CardInfoBackgroundColor)
-//            .height(170.dp)
-//            .fillMaxWidth()
-//    ) {
-//        CompositionLocalProvider(LocalTextStyle provides poppinsTextStyle) {
-//            Column(
-//                modifier = modifier.padding(18.dp, 12.dp)
-//            ) {
-//
-//                Text(
-//                    text = "Hi,\nGuest",
-//                    fontSize = 32.sp,
-//                    textAlign = TextAlign.Left,
-//                    modifier = modifier.fillMaxWidth()
-//                )
-//                Text(
-//                    text = "Available Balance",
-//                    fontSize = 12.sp,
-//                    modifier = modifier.fillMaxWidth()
-//                )
-//                Text(
-//                    text = "Rp${AvailableBalance()}",
-//                    fontSize = 26.sp,
-//                    fontWeight = FontWeight.SemiBold,
-//                    modifier = modifier.fillMaxWidth()
-//                )
-//            }
-//        }
-//    }
-//}
-//
-//@Composable
-//fun Spendoo(onLogout: () -> Unit = {}) {
-//    TransactionData(50)
-//    val navController = rememberNavController()
-//
-//    NavHost(navController = navController, startDestination = "home_screen") {
-//
-//        composable("home_screen") {
-//
-//            Pages(navController = navController, onLogout = onLogout)
-//        }
-//        composable("search_screen") {
-//            SearchPage(navController = navController)
-//        }
-//        composable("add_screen") {
-//            AddTransaction(navController = navController)
-//        }
-//
-//    }
-//}
+@Composable
+fun ProfileScreen(
+    navController: NavController,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showExport by remember { mutableStateOf(false) }
+    var showLogout by remember { mutableStateOf(false) }
+    var showChangeUsername by remember { mutableStateOf(false) }
+    val auth: FirebaseAuth = FirebaseAuth.getInstance()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MainBackgroundColor)
+            .padding(24.dp, 35.dp)
+    ) {
+        // 1. Tombol Kembali
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.arrow_side_line_left),
+                contentDescription = "Kembali",
+                colorFilter = ColorFilter.tint(Color.White),
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable { navController.popBackStack() }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Judul
+        Text(
+            text = "Profile Settings",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = interFamily,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // Tombol-tombol yang diperbarui
+
+        // 2. Tombol Ganti Username
+        ProfileButton(
+            text = "Change Username"
+            // <-- DIPERBAIKI: Parameter 'icon' dihapus sesuai permintaan
+        ) {
+            showChangeUsername = true
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 3. Tombol Ganti Password
+        ProfileButton(
+            text = "Change Password",
+            painter = painterResource(R.drawable.lock_icon),
+            contentDescription = "Change Password"
+            // <-- Panggilan ini sekarang valid karena ada overload ProfileButton (painter)
+        ) {
+            navController.navigate("forgot_password_screen")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 4. Tombol Export Transactions
+        ProfileButton(
+            text = "Export Transactions",
+            painter = painterResource(R.drawable.download_icon), // Ikon baru
+            contentDescription = "Export Transactions"
+        ) {
+            showExport = true
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 5. Tombol Logout (dengan style destruktif)
+        val destructiveColor = Color(0xFFE57373) // Warna merah untuk logout
+        ProfileButton(
+            text = "Logout",
+            painter = painterResource(R.drawable.logout_icon), // Ikon baru
+            contentDescription = "Logout",
+            contentColor = destructiveColor // Terapkan warna destruktif
+        ) {
+            showLogout = true
+        }
+    }
+
+    // Overlay untuk Export
+    if (showExport) {
+        ExportOptionsOverlay(
+            onDismiss = { showExport = false },
+            onAllTransactionsClick = { /* TODO: Logic Export Yearly */ showExport = false },
+            onDailyClick = { /* TODO: Logic Export Daily */ showExport = false },
+            onMonthlyClick = { /* TODO: Logic Export Monthly */ showExport = false },
+            allText = "Yearly"
+        )
+    }
+
+    // Overlay untuk Konfirmasi Logout
+    if (showLogout) {
+        ConfirmationOverlay(
+            message = "Are you sure you want to logout?",
+            onConfirm = {
+                showLogout = false
+                auth.signOut()
+                onLogout()
+            },
+            onCancel = { showLogout = false }
+        )
+    }
+
+    if (showChangeUsername) {
+        ChangeUsernameOverlay(
+            currentUsername = auth.currentUser?.displayName ?: "",
+            onDismiss = { showChangeUsername = false },
+            onSave = { newName ->
+                val user = auth.currentUser
+                if (user != null && newName.isNotBlank()) {
+                    val profileUpdates = UserProfileChangeRequest.Builder()
+                        .setDisplayName(newName)
+                        .build()
+
+                    user.updateProfile(profileUpdates)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                Log.d("ProfileScreen", "User profile updated successfully.")
+                                // Opsional: Tampilkan Toast atau Snackbar
+                            } else {
+                                Log.w("ProfileScreen", "Error updating profile.", task.exception)
+                                // Opsional: Tampilkan error
+                            }
+                        }
+                }
+                showChangeUsername = false
+            }
+        )
+    }
+
+}
+
+@Composable
+fun ChangeUsernameOverlay(
+    currentUsername: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var newUsername by remember { mutableStateOf(TextFieldValue(currentUsername)) }
+
+    // Menggunakan Dialog untuk overlay sederhana
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.DarkGray) // Sesuaikan warnanya
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Change Username",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontFamily = interFamily
+                )
+
+                // TextField untuk username baru
+                OutlinedTextField(
+                    value = newUsername,
+                    onValueChange = { newUsername = it },
+                    label = { Text("New Username") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.7f),
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Tombol Aksi
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Tombol Batal
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Text("Cancel", color = Color.White)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // Tombol Simpan
+                    Button(
+                        onClick = { onSave(newUsername.text) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                    ) {
+                        Text("Save", color = Color.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileButton(
+    text: String,
+    icon: ImageVector? = null, // <-- DIPERBAIKI: Dibuat nullable
+    backgroundColor: Color = Color.White.copy(alpha = 0.1f),
+    contentColor: Color = Color.White,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // DIPERBAIKI: Ikon hanya ditampilkan jika 'icon' tidak null
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+
+        // Teks
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            fontFamily = interFamily,
+            fontWeight = FontWeight.SemiBold,
+            color = contentColor,
+            modifier = Modifier.weight(1f)
+        )
+
+        // Ikon panah di sebelah kanan
+        Icon(
+            painter = painterResource(R.drawable.arrow_side_line_right),
+            contentDescription = null,
+            tint = contentColor.copy(alpha = 0.7f),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+
+@Composable
+fun ProfileButton(
+    text: String,
+    icon: ImageVector? = null,
+    painter: Painter, // <-- Parameter untuk Painter
+    contentDescription: String?, // <-- Parameter deskripsi untuk Painter
+    backgroundColor: Color = Color.White.copy(alpha = 0.1f),
+    contentColor: Color = Color.White,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+
+        // Ikon di sebelah kiri (menggunakan Painter)
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = contentColor,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp)) // Jarak antara ikon dan teks
+
+        // Teks
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            fontFamily = interFamily,
+            fontWeight = FontWeight.SemiBold,
+            color = contentColor,
+            modifier = Modifier.weight(1f)
+        )
+
+        // Ikon panah di sebelah kanan
+        Icon(
+            painter = painterResource(R.drawable.arrow_side_line_right),
+            contentDescription = null,
+            tint = contentColor.copy(alpha = 0.7f),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+@Composable
+fun ResetPasswordScreen(navController: NavController, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MainBackgroundColor)
+            .padding(24.dp, 35.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Tombol Kembali
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.arrow_side_line_left),
+                contentDescription = "Kembali",
+                colorFilter = ColorFilter.tint(Color.White), // Tint icon ke putih
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable { navController.popBackStack() }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Reset Password",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = interFamily,
+            color = Color.White
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Text(
+            text = "UI untuk reset password akan ada di sini.",
+            fontSize = 16.sp,
+            fontFamily = interFamily,
+            color = Color.White
+        )
+        // TODO: Tambahkan UI untuk reset password di sini (Misal: TextField untuk email, Button kirim)
+    }
+}
+
 
 @Preview
 @Composable

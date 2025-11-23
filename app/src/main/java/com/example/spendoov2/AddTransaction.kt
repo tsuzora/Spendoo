@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.spendoov2.data.LocalData
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -75,14 +74,9 @@ fun AddTransaction(
     transactionId: String? = null,
     modifier: Modifier = Modifier
 ) {
-    val auth: FirebaseAuth? = try {
-        FirebaseAuth.getInstance()
-    } catch (ex: Exception) {
-        Log.e("AuthInit", "Failed to get Firebase Instance", ex)
-        null
-    }
+    val auth = FirebaseAuth.getInstance()
     val db = Firebase.firestore
-    val currentUser = auth?.currentUser
+    val currentUser = auth.currentUser
 
     // Cari transaksi berdasarkan ID jika dalam mode edit
     val transactionToEdit = transactionId?.let { id ->
@@ -286,12 +280,12 @@ fun AddTransaction(
                                 // --- MODE GUEST: Simpan ke List lokal (kode Anda yang sudah ada) ---
                                 if (isEditMode && transactionToEdit != null) {
                                     val index =
-                                        LocalData.TransactionLists.indexOfFirst { it.id == transactionToEdit.id }
+                                        TransactionLists.indexOfFirst { it.id == transactionToEdit.id }
                                     if (index != -1) {
-                                        LocalData.TransactionLists[index] = newOrUpdatedTransaction
+                                        TransactionLists[index] = newOrUpdatedTransaction
                                     }
                                 } else {
-                                    LocalData.TransactionLists.add(0, newOrUpdatedTransaction)
+                                    TransactionLists.add(0, newOrUpdatedTransaction)
                                 }
                                 navController.popBackStack()
                             }

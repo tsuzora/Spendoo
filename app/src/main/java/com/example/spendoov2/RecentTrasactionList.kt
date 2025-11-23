@@ -42,7 +42,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.example.spendoov2.data.LocalData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -105,7 +104,7 @@ fun RecentTransactionList(
         } else {
             // --- MODE GUEST: Ambil data dari List lokal ---
             // (Kita buat salinan agar UI recompose jika list lokal berubah)
-            transactions = LocalData.TransactionLists.toList()
+            transactions = TransactionLists.toList()
         }
     }
 

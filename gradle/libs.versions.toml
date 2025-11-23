@@ -13,6 +13,8 @@ ui = "1.9.3"
 firebaseAuthKtx = "24.0.1"
 firebaseBom = "33.1.2"
 googleGms = "4.4.4"
+roomKtx = "2.8.3"
+media3Exoplayer = "1.8.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,6 +34,8 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version = "firebaseBom" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3Exoplayer" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

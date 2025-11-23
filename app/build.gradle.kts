@@ -55,6 +55,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.ui)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.media3.exoplayer)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -78,20 +80,8 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
 
-    // For ViewModel in Compose
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
+    // Add the dependency for Firebase Authentication without a version number
 
-    // For observing StateFlows correctly
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
-
-    // For launching coroutines in the ViewModel
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3")
-
-    // For cleaner Firebase async calls (optional, but recommended)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
-
-    // For JSON conversion
-    implementation("com.google.code.gson:gson:2.10.1")
 
     // Your other dependencies
     implementation(libs.androidx.core.ktx)

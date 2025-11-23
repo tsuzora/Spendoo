@@ -242,6 +242,8 @@ fun LoginPage(
                 modifier = Modifier.clickable { onNavigateToHome() }
             )
 
+
+
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
@@ -345,12 +347,11 @@ fun LoginPage(
                 )
             }
 
+
             Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
-
-// --- FUNGSI HELPER UNTUK GOOGLE SIGN-IN ---
 
 private fun getGoogleSignInClient(context: android.content.Context): GoogleSignInClient {
     // ⚠️ PENTING: GANTI DENGAN WEB CLIENT ID ANDA
@@ -392,6 +393,7 @@ private fun handleGoogleSignInResult(
         onError("Login Google Gagal: (code ${e.statusCode})")
     }
 }
+
 
 @Preview
 @Composable
