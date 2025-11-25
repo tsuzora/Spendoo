@@ -27,7 +27,7 @@ val MainBackgroundColor = Brush.linearGradient(
     start = Offset.Zero,
     end = Offset.Infinite
 )
-val BottomNavColor = Brush.horizontalGradient(
+val BottomNavColor: Brush = Brush.horizontalGradient(
     colorStops = arrayOf(
         0.0f to Color(0xFF1B1C28),
         0.6f to Color(0xFF178237),
@@ -75,6 +75,3 @@ val AddExpenseBGColor = Brush.linearGradient(
     start = Offset.Zero,
     end = Offset.Infinite
 )
-
-
-

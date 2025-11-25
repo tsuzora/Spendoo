@@ -1,5 +1,3 @@
-
-
 package com.example.spendoov2
 
 import android.util.Log
@@ -34,7 +32,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -85,35 +85,96 @@ fun AddTransaction(
     val currentUser = auth?.currentUser
 
     // Cari transaksi berdasarkan ID jika dalam mode edit
-    val transactionToEdit = transactionId?.let { id ->
-        TransactionLists.find { it.id == id && id != "new" }
-    }
-    val isEditMode = transactionToEdit != null
+    var transactionToEdit by remember { mutableStateOf<TransactionData?>(null) }
 
-    // State untuk input pengguna
-    var selectedType by remember { mutableStateOf(transactionToEdit?.type?.replaceFirstChar { it.uppercase() } ?: "Expense") }
-    var amount by remember { mutableStateOf(transactionToEdit?.amount?.toString() ?: "") }
-    var selectedCategory by remember { mutableStateOf<Pair<String, Int>?>(
-        if (isEditMode) Pair(transactionToEdit!!.category, transactionToEdit.image) else null
-    ) }
-    // Inisialisasi payment method dengan nilai default jika dalam mode edit, karena data tidak tersimpan
-    var selectedPaymentMethod by remember { mutableStateOf<Pair<String, Int>?>(if(isEditMode) "Cash" to R.drawable.cash_icon else null) }
+    // 2. Fetch data: Try Local first, if missing, fetch from Firestore
+    LaunchedEffect(transactionId) {
+        if (transactionId != null && transactionId != "new") {
+            // Try to find it in the local list first
+            val localFind = LocalData.TransactionLists.find { it.id == transactionId }
 
-    // State untuk tanggal dan waktu
-    val initialCalendar = Calendar.getInstance().apply {
-        if (isEditMode && transactionToEdit != null) {
-            set(Calendar.YEAR, transactionToEdit.year)
-            val monthInt = SimpleDateFormat("MMMM", Locale.ENGLISH).parse(transactionToEdit.month)?.let {
-                Calendar.getInstance().apply { time = it }.get(Calendar.MONTH)
-            } ?: get(Calendar.MONTH)
-            set(Calendar.MONTH, monthInt)
-            set(Calendar.DAY_OF_MONTH, transactionToEdit.date)
+            if (localFind != null) {
+                transactionToEdit = localFind
+            } else if (currentUser != null) {
+                // If not found locally (e.g., refresh), fetch from Firestore
+                db.collection("users")
+                    .document(currentUser.uid)
+                    .collection("transactions")
+                    .document(transactionId)
+                    .get()
+                    .addOnSuccessListener { document ->
+                        if (document.exists()) {
+                            transactionToEdit = document.toObject(TransactionData::class.java)
+                        }
+                    }
+            }
         }
     }
-    var selectedDate by remember { mutableStateOf(initialCalendar) }
-    var selectedHour by remember { mutableStateOf(12) }
-    var selectedMinute by remember { mutableStateOf(0) }
-    var selectedIsAm by remember { mutableStateOf(false) } // false for PM, true for AM
+
+    // 3. Determine Edit Mode based on the STATE
+    val isEditMode = transactionToEdit != null
+
+    // 4. Initialize inputs using the STATE (use 'key' to update when data arrives)
+    var selectedType by remember(transactionToEdit) {
+        mutableStateOf(transactionToEdit?.type?.replaceFirstChar { it.uppercase() } ?: "Expense")
+    }
+    var amount by remember(transactionToEdit) {
+        mutableStateOf(transactionToEdit?.amount?.toString() ?: "")
+    }
+    var selectedCategory by remember(transactionToEdit) {
+        mutableStateOf(
+            if (transactionToEdit != null) Pair(
+                transactionToEdit!!.category,
+                transactionToEdit!!.image
+            ) else null
+        )
+    }
+
+    var selectedPaymentMethod by remember(transactionToEdit) {
+        mutableStateOf<Pair<String, Int>?>(
+            if (isEditMode) {
+                // Ideally replace this with transactionToEdit.paymentMethod if you add it to your DB
+                Pair("Cash", R.drawable.cash_icon)
+            } else {
+                null
+            }
+        )
+    }
+
+    // State untuk tanggal dan waktu
+// 1. Calculate the starting calendar state based on whether we are editing or adding
+    val initialCalendar = remember(transactionToEdit) {
+        Calendar.getInstance().apply {
+            // If we have a transaction to edit, overwrite the "current time" with the "saved time"
+            if (transactionToEdit != null) {
+                set(Calendar.YEAR, transactionToEdit!!.year)
+
+                // Parse the month string (e.g., "January") back to an integer
+                val monthInt = SimpleDateFormat("MMMM", Locale.ENGLISH)
+                    .parse(transactionToEdit!!.month)?.let {
+                        Calendar.getInstance().apply { time = it }.get(Calendar.MONTH)
+                    } ?: get(Calendar.MONTH)
+
+                set(Calendar.MONTH, monthInt)
+                set(Calendar.DAY_OF_MONTH, transactionToEdit!!.date)
+
+                // Assuming your TransactionData has hour/minute fields.
+                // If it doesn't, this part will keep the "current time" for the clock.
+                set(Calendar.HOUR_OF_DAY, transactionToEdit!!.hour)
+                set(Calendar.MINUTE, transactionToEdit!!.minute)
+            }
+            // If transactionToEdit IS null, we do nothing here.
+            // Calendar.getInstance() already defaults to the device's current time.
+        }
+    }
+
+// 2. Initialize your state variables directly from that calculated calendar
+    var selectedDate by remember(initialCalendar) { mutableStateOf(initialCalendar) }
+    var selectedHour by remember(initialCalendar) { mutableIntStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY)) }
+    var selectedMinute by remember(initialCalendar) { mutableIntStateOf(initialCalendar.get(Calendar.MINUTE)) }
+    var selectedIsAm by remember(initialCalendar) {
+        mutableStateOf(initialCalendar.get(Calendar.AM_PM) == Calendar.AM)
+    }
 
     // State untuk visibility overlay
     var showCategoryOverlay by remember { mutableStateOf(false) }
@@ -178,7 +239,8 @@ fun AddTransaction(
                             selectedCategory = null
                         }
                     },
-                    Modifier.weight(1f))
+                    Modifier.weight(1f)
+                )
                 TransactionTypeButton(
                     "Expense",
                     selectedType == "Expense",
@@ -188,7 +250,8 @@ fun AddTransaction(
                             selectedCategory = null
                         }
                     },
-                    Modifier.weight(1f))
+                    Modifier.weight(1f)
+                )
             }
 
             Spacer(modifier = Modifier.height(30.dp))
@@ -264,6 +327,9 @@ fun AddTransaction(
                                     Locale.US
                                 ) ?: "",
                                 year = selectedDate.get(Calendar.YEAR),
+                                hour = selectedHour,
+                                minute = selectedMinute,
+                                isAMPM = if (selectedIsAm) "AM" else "PM",
                                 image = selectedCategory!!.second,
                                 amount = finalAmount
                             )
@@ -286,7 +352,7 @@ fun AddTransaction(
                                 // --- MODE GUEST: Simpan ke List lokal (kode Anda yang sudah ada) ---
                                 if (isEditMode && transactionToEdit != null) {
                                     val index =
-                                        LocalData.TransactionLists.indexOfFirst { it.id == transactionToEdit.id }
+                                        LocalData.TransactionLists.indexOfFirst { it.id == transactionToEdit!!.id }
                                     if (index != -1) {
                                         LocalData.TransactionLists[index] = newOrUpdatedTransaction
                                     }
@@ -372,7 +438,7 @@ fun AddTransaction(
                                 }
                         } else {
                             // --- MODE GUEST: Hapus dari List lokal ---
-                            TransactionLists.remove(transaction)
+                            LocalData.TransactionLists.remove(transaction)
                             showDeleteConfirmation = false
                             navController.popBackStack() // Kembali setelah sukses
                         }
@@ -387,13 +453,17 @@ fun AddTransaction(
 // --- Composable-composable Helper ---
 
 @Composable
-fun TransactionTypeButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun TransactionTypeButton(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val backgroundColor = when {
         isSelected && text == "Income" -> AddIncomeBGColor
         isSelected && text == "Expense" -> AddExpenseBGColor
         else -> UnselectedColor
     }
-
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
@@ -467,8 +537,7 @@ fun AmountField(value: String, onValueChange: (String) -> Unit) {
             )
             BasicTextField(
                 value = value,
-                onValueChange = {
-                        newText ->
+                onValueChange = { newText ->
                     if (newText.all { it.isDigit() }) {
                         onValueChange(newText)
                     }
@@ -567,7 +636,8 @@ fun CategorySelectionOverlay(
     onDismiss: () -> Unit,
     onCategorySelected: (name: String, iconRes: Int) -> Unit
 ) {
-    val categories = if (transactionType.equals("Income", ignoreCase = true)) categoryIncome else categoryExpense
+    val categories =
+        if (transactionType.equals("Income", ignoreCase = true)) categoryIncome else categoryExpense
     val gradient = if (transactionType.equals("Income", ignoreCase = true)) {
         Brush.linearGradient(listOf(Color(0xFF2f9944), Color(0xFF54E871)))
     } else {
@@ -623,7 +693,10 @@ fun CategorySelectionOverlay(
 }
 
 @Composable
-fun PaymentMethodOverlay(onDismiss: () -> Unit, onPaymentMethodSelected: (name: String, iconRes: Int) -> Unit) {
+fun PaymentMethodOverlay(
+    onDismiss: () -> Unit,
+    onPaymentMethodSelected: (name: String, iconRes: Int) -> Unit
+) {
     val paymentMethods = listOf(
         "Cash" to R.drawable.cash_icon,
         "Debit Card" to R.drawable.credit_card, // Nama file disesuaikan menjadi credit_card
@@ -646,7 +719,12 @@ fun PaymentMethodOverlay(onDismiss: () -> Unit, onPaymentMethodSelected: (name: 
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Payment Method", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Payment Method",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                     Icon(
                         painter = painterResource(id = R.drawable.icone_close),
                         contentDescription = "Close",
@@ -680,10 +758,19 @@ fun TimePickerOverlay(
     initialHour: Int, initialMinute: Int, initialIsAm: Boolean,
     onDismiss: () -> Unit, onTimeSelected: (hour: Int, minute: Int, isAm: Boolean) -> Unit
 ) {
-    // Internal state for the picker, using a 12-hour format for the UI
-    var hour by remember { mutableStateOf(if (initialHour > 12) initialHour - 12 else if (initialHour == 0) 12 else initialHour) }
-    var minute by remember { mutableStateOf(initialMinute) }
-    var isAm by remember { mutableStateOf(initialIsAm) }
+    // 1. USE KEYS IN REMEMBER:
+    // This forces the state to update whenever 'initialHour' or 'initialMinute' changes.
+    var hour by remember(initialHour) {
+        mutableStateOf(
+            if (initialHour > 12) initialHour - 12
+            else if (initialHour == 0) 12
+            else initialHour
+        )
+    }
+
+    var minute by remember(initialMinute) { mutableStateOf(initialMinute) }
+
+    var isAm by remember(initialIsAm) { mutableStateOf(initialIsAm) }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -693,7 +780,11 @@ fun TimePickerOverlay(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Time Picker", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "Time Picker",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(modifier = Modifier.height(16.dp))
 
             // Main row containing numbers and AM/PM toggle
@@ -701,15 +792,27 @@ fun TimePickerOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
+                // Hour Picker (Range 1-12)
                 NumberPicker(value = hour, onValueChange = { hour = it }, range = 1..12)
-                Text(":", fontSize = 48.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
+
+                Text(
+                    ":",
+                    fontSize = 48.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+
+                // Minute Picker (Range 0-59)
                 NumberPicker(value = minute, onValueChange = { minute = it }, range = 0..59)
+
                 Spacer(Modifier.width(16.dp))
 
-                // AM/PM buttons stacked vertically
+                // AM/PM buttons
                 Column {
-                    val amBgColor = if (isAm) AddIncomeBGColor else Color.LightGray.copy(alpha = 0.3f)
-                    val pmBgColor = if (!isAm) AddIncomeBGColor else Color.LightGray.copy(alpha = 0.3f)
+                    val amBgColor =
+                        if (isAm) AddIncomeBGColor else Color.LightGray.copy(alpha = 0.3f)
+                    val pmBgColor =
+                        if (!isAm) AddIncomeBGColor else Color.LightGray.copy(alpha = 0.3f)
                     val amTextColor = if (isAm) Color.White else Color.Black
                     val pmTextColor = if (!isAm) Color.White else Color.Black
 
@@ -731,14 +834,14 @@ fun TimePickerOverlay(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Confirm button to set the time and close the dialog
+            // Confirm button
             Button(
                 onClick = {
-                    // Convert 12-hour format back to 24-hour format before saving
+                    // Convert 12-hour format back to 24-hour format
                     val finalHour = when {
-                        isAm && hour == 12 -> 0    // 12 AM is 00:00
-                        !isAm && hour < 12 -> hour + 12 // 1 PM to 11 PM
-                        else -> hour                   // Handles 1 AM-11 AM and 12 PM
+                        isAm && hour == 12 -> 0    // 12 AM -> 00:00
+                        !isAm && hour < 12 -> hour + 12 // 1 PM to 11 PM -> 13:00 to 23:00
+                        else -> hour                   // 1 AM to 11 AM, and 12 PM -> 12:00
                     }
                     onTimeSelected(finalHour, minute, isAm)
                 },
@@ -777,7 +880,11 @@ fun NumberPicker(value: Int, onValueChange: (Int) -> Unit, range: IntRange) {
 }
 
 @Composable
-fun CalendarOverlay(initialDate: Calendar, onDismiss: () -> Unit, onDateSelected: (Calendar) -> Unit) {
+fun CalendarOverlay(
+    initialDate: Calendar,
+    onDismiss: () -> Unit,
+    onDateSelected: (Calendar) -> Unit
+) {
     var displayedMonth by remember { mutableStateOf(initialDate.clone() as Calendar) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -832,21 +939,39 @@ fun CalendarOverlay(initialDate: Calendar, onDismiss: () -> Unit, onDateSelected
             Spacer(modifier = Modifier.height(8.dp))
 
             // Day of Week Headers
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
                 val days = listOf("SEN", "SEL", "RAB", "KAM", "JUM", "SAB", "MIN")
-                days.forEach { Text(it, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray) }
+                days.forEach {
+                    Text(
+                        it,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Gray
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
 
             // Calendar Dates
             val daysInMonth = displayedMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
-            val firstDayOfMonth = (displayedMonth.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, 1) }.get(Calendar.DAY_OF_WEEK)
-            val offset = (firstDayOfMonth - Calendar.MONDAY + 7) % 7 // Adjusted for SEN as first day
+            val firstDayOfMonth =
+                (displayedMonth.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, 1) }
+                    .get(Calendar.DAY_OF_WEEK)
+            val offset =
+                (firstDayOfMonth - Calendar.MONDAY + 7) % 7 // Adjusted for SEN as first day
 
             LazyVerticalGrid(columns = GridCells.Fixed(7)) {
                 items(offset) { Spacer(modifier = Modifier.size(40.dp)) }
                 items(daysInMonth) { day ->
-                    val date = (displayedMonth.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, day + 1) }
+                    val date = (displayedMonth.clone() as Calendar).apply {
+                        set(
+                            Calendar.DAY_OF_MONTH,
+                            day + 1
+                        )
+                    }
                     val isSelected = day + 1 == initialDate.get(Calendar.DAY_OF_MONTH) &&
                             displayedMonth.get(Calendar.MONTH) == initialDate.get(Calendar.MONTH) &&
                             displayedMonth.get(Calendar.YEAR) == initialDate.get(Calendar.YEAR)
@@ -895,14 +1020,14 @@ fun CategoryItem(name: String, iconRes: Int, onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, name = "Add New Transaction")
-@Composable
-fun AddTransactionPreview() {
-    val navController = rememberNavController()
-    Surface {
-        AddTransaction(navController = navController, transactionId = "new")
-    }
-}
+//@Preview(showBackground = true, name = "Add New Transaction")
+//@Composable
+//fun AddTransactionPreview() {
+//    val navController = rememberNavController()
+//    Surface {
+//        AddTransaction(navController = navController, transactionId = "new")
+//    }
+//}
 
 // VERSION 3
 

@@ -13,6 +13,9 @@ ui = "1.9.3"
 firebaseAuthKtx = "24.0.1"
 firebaseBom = "33.1.2"
 googleGms = "4.4.4"
+uiVersion = "1.9.5"
+uiGraphics = "1.9.5"
+runtime = "1.9.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,6 +35,9 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version = "firebaseBom" }
+androidx-compose-ui-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "uiVersion" }
+ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "uiGraphics" }
+androidx-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

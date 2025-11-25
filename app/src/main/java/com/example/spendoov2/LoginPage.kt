@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.spendoov2.data.LocalData
 import com.example.spendoov2.ui.theme.interFamily
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -239,7 +240,9 @@ fun LoginPage(
                 color = Color.White,
                 fontSize = 16.sp,
                 fontFamily = interFamily,
-                modifier = Modifier.clickable { onNavigateToHome() }
+                modifier = Modifier.clickable {
+                    onNavigateToHome()
+                    LocalData.Name = initGuest() }
             )
 
             Spacer(modifier = Modifier.height(32.dp))

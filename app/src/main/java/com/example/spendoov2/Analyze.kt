@@ -68,6 +68,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.core.graphics.withRotation
+import com.example.spendoov2.data.LocalData
 import java.time.Month
 
 
@@ -127,7 +128,7 @@ fun AnalyzeAndAdviceScreen(navController: NavController) {
                 }
         } else {
             // Mode Guest: Ambil data dari List lokal
-            allTransactions = TransactionLists.toList()
+            allTransactions = LocalData.TransactionLists.toList()
         }
     }
 
@@ -934,15 +935,15 @@ fun BarChart(income: Int, prevIncome: Int, expense: Int, prevExpense: Int, modif
 // ===============================
 // 🔹 PREVIEW
 // ===============================
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun AnalyzeAndAdviceScreenPreview() {
-    // Add dummy data for the preview to work
-    TransactionLists = mutableListOf(
-        TransactionData("1", "expense", "Groceries", 1, "OCTOBER", 2025, R.drawable.cash_icon, 500000),
-        TransactionData("2", "expense", "Electronics", 2, "OCTOBER", 2025, R.drawable.cash_icon, 1200000),
-        TransactionData("3", "income", "Salary", 1, "OCTOBER", 2025, R.drawable.cash_icon, 5000000),
-        TransactionData("4", "income", "Salary", 1, "SEPTEMBER", 2025, R.drawable.cash_icon, 4800000)
-    )
-    AnalyzeAndAdviceScreen(navController = rememberNavController())
-}
+//@Preview(showBackground = true, showSystemUi = true)
+//@Composable
+//fun AnalyzeAndAdviceScreenPreview() {
+//    // Add dummy data for the preview to work
+//    TransactionLists = mutableListOf(
+//        TransactionData("1", "expense", "Groceries", 1, "OCTOBER", 2025, R.drawable.cash_icon, 500000),
+//        TransactionData("2", "expense", "Electronics", 2, "OCTOBER", 2025, R.drawable.cash_icon, 1200000),
+//        TransactionData("3", "income", "Salary", 1, "OCTOBER", 2025, R.drawable.cash_icon, 5000000),
+//        TransactionData("4", "income", "Salary", 1, "SEPTEMBER", 2025, R.drawable.cash_icon, 4800000)
+//    )
+//    AnalyzeAndAdviceScreen(navController = rememberNavController())
+//}

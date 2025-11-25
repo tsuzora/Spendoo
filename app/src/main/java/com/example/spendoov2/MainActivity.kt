@@ -70,7 +70,9 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.spendoov2.data.LocalData
 import kotlinx.coroutines.delay
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -131,11 +133,6 @@ fun Pages(
     var pageType by remember { mutableStateOf("home") }
     var contentType by remember { mutableStateOf("all") }
 
-    // State untuk visibility overlay
-    var showSettings by remember { mutableStateOf(false) }
-    var showExport by remember { mutableStateOf(false) }
-    var showLogout by remember { mutableStateOf(false) }
-
     // State untuk filter tanggal
     var dailyDate by remember { mutableStateOf(LocalDate.now()) }
     var monthlyDate by remember { mutableStateOf(LocalDate.now()) }
@@ -155,7 +152,7 @@ fun Pages(
                     onClick = { newTab -> contentType = newTab },
                     onNavigateToPage = { newPage -> pageType = newPage },
                     navController = navController,
-                    onSettingsClick = { showSettings = true } // Tampilkan settings overlay
+                    onSettingsClick = {} // Tampilkan settings overlay
                 )
                 PageContent(
                     content = contentType,
@@ -172,52 +169,6 @@ fun Pages(
             BottomNav(
                 onClick = { action -> contentType = action },
                 navController = navController
-            )
-        }
-
-        // Overlays
-        if (showSettings) {
-            SettingsOverlay(
-                onDismiss = { showSettings = false },
-                onExportClick = {
-                    showSettings = false
-                    showExport = true
-                },
-                onEditProfileClick = { /* TODO */ },
-                onLogoutClick = {
-                    showSettings = false
-                    showLogout = true
-                }
-            )
-        }
-
-        if (showExport) {
-            ExportOptionsOverlay(
-                onDismiss = { showExport = false },
-                onAllTransactionsClick = {
-                    showExport = false
-                    exportViewModel.exportUserData()
-                },
-                onDailyClick = {
-                    showExport = false
-                    Toast.makeText(context, "Daily export coming soon!", Toast.LENGTH_SHORT).show()
-                },
-                onMonthlyClick = {
-                    showExport = false
-                    Toast.makeText(context, "Daily export coming soon!", Toast.LENGTH_SHORT).show()
-                }
-            )
-        }
-
-        if (showLogout) {
-            ConfirmationOverlay(
-                message = "Are you sure you want to logout?",
-                onConfirm = {
-                    showLogout = false
-                    auth?.signOut()
-                    onLogout()
-                },
-                onCancel = { showLogout = false }
             )
         }
 
@@ -289,10 +240,10 @@ fun TopBanner(
                         )
                         Image(
                             painter = painterResource(R.drawable.dot_option),
-                            contentDescription = "Options",
+                            contentDescription = "Profile",
                             modifier = modifier
                                 .size(35.dp)
-                                .clickable(onClick = onSettingsClick) // Perbaikan: Hanya satu clickable
+                                .clickable{navController.navigate("profile_screen")}
                         )
                     }
                 }
@@ -330,6 +281,17 @@ fun LogoContainer(
         }
     }
 }
+
+
+fun initGuest(): String? {
+
+    if (LocalData.Name != null) {
+        return LocalData.Name
+    }
+    return "Guest"
+}
+
+
 
 
 @Composable
@@ -431,14 +393,14 @@ fun QuickInfoCard(modifier: Modifier = Modifier) {
                 }
         } else {
             // --- MODE GUEST: Ambil data dari List lokal ---
-            transactions = TransactionLists.toList()
+            transactions = LocalData.TransactionLists.toList()
         }
     }
 
     val userName = if (currentUser != null && !currentUser.displayName.isNullOrBlank()) {
         currentUser.displayName // Ambil nama dari profil Auth
     } else {
-        "Guest" // Fallback
+        LocalData.Name
     }
 
     Column(
@@ -505,7 +467,7 @@ fun BottomNav(
 
         // "Add Transaction" Button
         Image(
-            painter = painterResource(id = R.drawable.plus_icon), // Make sure you have 'add_button.xml'
+            painter = painterResource(id = R.drawable.plus_icon), // Make sure you have
             contentDescription = "Add Transaction",
             modifier = Modifier
                 .size(60.dp) // Typically larger
@@ -546,13 +508,26 @@ fun Spendoo(onLogout: () -> Unit = {}) {
         ) { backStackEntry ->
             val transactionId = backStackEntry.arguments?.getString("transactionId")
             AddTransaction(navController = navController, transactionId = transactionId)
+            Log.d("DEBUG_CHECK", "ID Passed: $transactionId")
+            Log.d("DEBUG_CHECK", "Local List Size: ${LocalData.TransactionLists.size}")
         }
         // Rute untuk menambah transaksi baru (tanpa ID)
-        composable("add_screen") {
+        composable("add_screen/new") {
             AddTransaction(navController = navController)
         }
         composable("statistics_screen") {
             AnalyzeAndAdviceScreen(navController = navController)
+        }
+
+        composable("profile_screen") {
+            ProfileScreen(navController = navController, onLogout = onLogout)
+        }
+        composable("reset_password_screen") {
+            ResetPasswordScreen(navController = navController)
+        }
+
+        composable("forgot_password_screen") {
+            ForgotPasswordPage(onNavigateBack = { navController.popBackStack() })
         }
     }
 }

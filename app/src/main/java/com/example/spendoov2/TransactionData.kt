@@ -40,6 +40,10 @@ fun generateTransactionData(num: Int) {
         } else {
             (1..35).random()
         }
+        var isAMPM_ = (0..1).random()
+        val isAMPM = if (isAMPM_ == 0) "AM" else "PM"
+        val hour = (0..12).random()
+        val minute = (0..60).random()
 
         val catName = catTransaction.key
         val icon = catTransaction.value
@@ -56,6 +60,9 @@ fun generateTransactionData(num: Int) {
                 date = date,
                 month = monthName,
                 year = year,
+                hour = hour,
+                minute = minute,
+                isAMPM = isAMPM,
                 image = icon,
                 amount = amount * 10000
             )

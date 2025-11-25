@@ -55,6 +55,9 @@ data class TransactionData(
     val date: Int = 0,
     val month: String = "",
     val year: Int = 0,
+    val hour: Int,
+    val minute: Int,
+    val isAMPM: String,
     val image: Int = 0,
     val amount: Int = 0
 )
@@ -138,9 +141,24 @@ fun RecentTransactionList(
             }
         }
 
-        val sortedTransactions = dateFilteredTransactions.sortedByDescending {
-            LocalDate.of(it.year, Month.valueOf(it.month.uppercase(Locale.ROOT)), it.date)
-             }
+        val sortedTransactions = dateFilteredTransactions.sortedByDescending { transaction ->
+            // 1. Convert the Month String (e.g., "January") to a Month Enum object
+            val monthEnum = try {
+                java.time.Month.valueOf(transaction.month.uppercase(java.util.Locale.ROOT))
+            } catch (e: Exception) {
+                java.time.Month.JANUARY // Fallback if spelling is wrong
+            }
+
+            // 2. Create a full LocalDateTime object to sort by Time as well
+            // Make sure your TransactionData class has 'hour' and 'minute' fields
+            java.time.LocalDateTime.of(
+                transaction.year,
+                monthEnum,
+                transaction.date,
+                transaction.hour,   // Uses the hour field
+                transaction.minute  // Uses the minute field
+            )
+        }
 
         if (sortedTransactions.isEmpty()) {
             Box(

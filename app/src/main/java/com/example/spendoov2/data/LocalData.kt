@@ -4,4 +4,5 @@ import com.example.spendoov2.TransactionData
 
 object LocalData {
     var TransactionLists = mutableListOf<TransactionData>()
+    var Name:String? = null
 }
