@@ -2,6 +2,7 @@ package com.example.spendoov2
 
 import android.app.Activity
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -52,7 +54,11 @@ import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.auth.OAuthProvider // <-- IMPORT BARU
+import com.google.firebase.auth.OAuthProvider
+
+// GANTI INI DENGAN "WEB CLIENT ID" DARI FIREBASE CONSOLE -> AUTHENTICATION -> GOOGLE -> WEB SDK CONFIG
+// JANGAN PAKAI ANDROID CLIENT ID
+const val WEB_CLIENT_ID = "766263715089-7pfid4burqhqhh3tdtl0pa5mtai8klni.apps.googleusercontent.com"
 
 @Composable
 fun LoginPage(
@@ -64,25 +70,41 @@ fun LoginPage(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) } // State loading (opsional untuk UI)
 
-    val context = LocalContext.current // <-- Ubah context ke Activity
+    val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
 
     // --- LOGIKA GOOGLE SIGN-IN ---
-    val googleSignInClient = remember { getGoogleSignInClient(context) }
+
+    // 1. Setup Google Client
+    val googleSignInClient = remember {
+        getGoogleSignInClient(context, WEB_CLIENT_ID)
+    }
+
+    // 2. Launcher untuk Intent Google Sign In
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
         onResult = { result ->
             if (result.resultCode == Activity.RESULT_OK) {
+                isLoading = true
                 val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
                 handleGoogleSignInResult(
                     task = task,
                     auth = auth,
-                    onSuccess = onNavigateToHome,
-                    onError = { errorMsg -> errorMessage = errorMsg }
+                    onSuccess = {
+                        isLoading = false
+                        Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
+                        onNavigateToHome()
+                    },
+                    onError = { errorMsg ->
+                        isLoading = false
+                        errorMessage = errorMsg
+                        Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                    }
                 )
             } else {
-                errorMessage = "Login Google dibatalkan."
+                errorMessage = "Login Google dibatalkan atau gagal (Result Code: ${result.resultCode})"
             }
         }
     )
@@ -91,8 +113,6 @@ fun LoginPage(
     val githubProvider = remember {
         OAuthProvider.newBuilder("github.com").build()
     }
-
-    // --- AKHIR LOGIKA ---
 
     Box(
         modifier = modifier
@@ -115,7 +135,7 @@ fun LoginPage(
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            // ... (Email, Password, Tombol "Log In", dan Error Message) ...
+            // --- Form Email ---
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -142,6 +162,7 @@ fun LoginPage(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // --- Form Password ---
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -169,19 +190,23 @@ fun LoginPage(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // --- Tombol Log In ---
             Button(
                 onClick = {
                     errorMessage = null
                     if (email.isBlank() || password.isBlank()) {
                         errorMessage = "Email dan Password harus diisi."
                     } else {
+                        isLoading = true
                         auth.signInWithEmailAndPassword(email, password)
                             .addOnCompleteListener { task ->
+                                isLoading = false
                                 if (task.isSuccessful) {
+                                    Toast.makeText(context, "Welcome back!", Toast.LENGTH_SHORT).show()
                                     onNavigateToHome()
                                 } else {
                                     Log.w("Login", "signInWithEmail:failure", task.exception)
-                                    errorMessage = "Login gagal. Periksa kembali email dan password Anda."
+                                    errorMessage = "Login gagal: ${task.exception?.localizedMessage}"
                                 }
                             }
                     }
@@ -194,7 +219,7 @@ fun LoginPage(
                     .padding(horizontal = 24.dp)
             ) {
                 Text(
-                    text = "Log In",
+                    text = if (isLoading) "Loading..." else "Log In",
                     color = Color.Black,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -202,6 +227,7 @@ fun LoginPage(
                 )
             }
 
+            // --- Tampilan Error Message ---
             if (errorMessage != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -215,6 +241,7 @@ fun LoginPage(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // --- Links ---
             Text(
                 text = "Forgot Password?",
                 color = Color.White.copy(alpha = 0.8f),
@@ -241,8 +268,9 @@ fun LoginPage(
                 fontSize = 16.sp,
                 fontFamily = interFamily,
                 modifier = Modifier.clickable {
+                    LocalData.Name = initGuest()
                     onNavigateToHome()
-                    LocalData.Name = initGuest() }
+                }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -258,6 +286,7 @@ fun LoginPage(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // --- Social Login Row ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -267,20 +296,23 @@ fun LoginPage(
             ) {
                 // Ikon Google
                 Image(
-                    painter = painterResource(id = R.drawable.google_icon), // GANTI NAMA INI
+                    painter = painterResource(id = R.drawable.google_icon),
                     contentDescription = "Login with Google",
                     modifier = Modifier
                         .size(40.dp)
                         .clickable {
                             errorMessage = null
-                            val signInIntent = googleSignInClient.signInIntent
-                            googleSignInLauncher.launch(signInIntent)
+                            // Pastikan logout dulu dari Google Client agar bisa memilih akun lagi
+                            googleSignInClient.signOut().addOnCompleteListener {
+                                val signInIntent = googleSignInClient.signInIntent
+                                googleSignInLauncher.launch(signInIntent)
+                            }
                         }
                 )
 
                 // Ikon Facebook
                 Image(
-                    painter = painterResource(id = R.drawable.facebook_icon), // GANTI NAMA INI
+                    painter = painterResource(id = R.drawable.facebook_icon),
                     contentDescription = "Login with Facebook",
                     modifier = Modifier
                         .size(40.dp)
@@ -289,56 +321,41 @@ fun LoginPage(
                         }
                 )
 
-                // --- ⬇️ PERUBAHAN DI SINI ⬇️ ---
                 // Ikon GitHub
                 Image(
-                    painter = painterResource(id = R.drawable.github_icon), // GANTI NAMA INI
+                    painter = painterResource(id = R.drawable.github_icon),
                     contentDescription = "Login with GitHub",
                     modifier = Modifier
                         .size(40.dp)
                         .clickable {
                             errorMessage = null
-
-                            // 1. Dapatkan Activity secara aman DARI context
                             val activity = context as? Activity
-
-                            // 2. Periksa apakah context-nya adalah Activity
                             if (activity != null) {
-                                // Cek apakah ada aktivitas login lain yang sedang berjalan
                                 val pendingResultTask = auth.pendingAuthResult
                                 if (pendingResultTask != null) {
-                                    // Ada login yang tertunda, coba selesaikan
                                     pendingResultTask.addOnSuccessListener {
-                                        Log.d("GitHubSignIn", "Login tertunda SUKSES")
                                         onNavigateToHome()
                                     }.addOnFailureListener { e ->
-                                        Log.w("GitHubSignIn", "Login tertunda GAGAL", e)
                                         errorMessage = "Login GitHub Gagal: ${e.message}"
                                     }
                                 } else {
-                                    // 3. ⬇️ INI BAGIAN PENTING ⬇️
-                                    // Pastikan Anda memanggil ini dengan 'activity', BUKAN 'context'
                                     auth.startActivityForSignInWithProvider(activity, githubProvider)
                                         .addOnSuccessListener {
-                                            Log.d("GitHubSignIn", "Alur web SUKSES, login...")
                                             onNavigateToHome()
                                         }
                                         .addOnFailureListener { e ->
-                                            Log.w("GitHubSignIn", "Alur web GAGAL", e)
                                             errorMessage = "Login GitHub Gagal: ${e.message}"
                                         }
                                 }
                             } else {
-                                // Ini adalah fallback jika context bukan Activity
-                                errorMessage = "Tidak bisa memulai login: Konteks aplikasi tidak valid."
+                                errorMessage = "Error: Konteks aplikasi tidak valid."
                             }
                         }
                 )
-                // --- ⬆️ AKHIR PERUBAHAN ⬆️ ---
 
                 // Ikon Apple
                 Image(
-                    painter = painterResource(id = R.drawable.apple_icon), // GANTI NAMA INI
+                    painter = painterResource(id = R.drawable.apple_icon),
                     contentDescription = "Login with Apple",
                     modifier = Modifier
                         .size(40.dp)
@@ -355,10 +372,10 @@ fun LoginPage(
 
 // --- FUNGSI HELPER UNTUK GOOGLE SIGN-IN ---
 
-private fun getGoogleSignInClient(context: android.content.Context): GoogleSignInClient {
-    // ⚠️ PENTING: GANTI DENGAN WEB CLIENT ID ANDA
-    val webClientId = "766263715089-7pfid4burqhqhh3tdtl0pa5mtai8klni.apps.googleusercontent.com"
-
+private fun getGoogleSignInClient(
+    context: android.content.Context,
+    webClientId: String
+): GoogleSignInClient {
     val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
         .requestIdToken(webClientId)
         .requestEmail()
@@ -374,27 +391,50 @@ private fun handleGoogleSignInResult(
     onError: (String) -> Unit
 ) {
     try {
-        val account = task.getResult(ApiException::class.java)!!
-        val idToken = account.idToken!!
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val account = task.getResult(ApiException::class.java)
+        if (account != null) {
+            val idToken = account.idToken
+            if (idToken != null) {
+                val credential = GoogleAuthProvider.getCredential(idToken, null)
+                Log.d("GoogleSignIn", "Mencoba Auth Firebase dengan token Google...")
 
-        Log.d("GoogleSignIn", "Firebase Auth dengan Google: ${account.id}")
-
-        auth.signInWithCredential(credential)
-            .addOnCompleteListener { firebaseTask ->
-                if (firebaseTask.isSuccessful) {
-                    Log.d("GoogleSignIn", "Login Firebase SUKSES")
-                    onSuccess()
-                } else {
-                    Log.w("GoogleSignIn", "Login Firebase GAGAL", firebaseTask.exception)
-                    onError("Login Firebase Gagal: ${firebaseTask.exception?.message}")
-                }
+                auth.signInWithCredential(credential)
+                    .addOnCompleteListener { firebaseTask ->
+                        if (firebaseTask.isSuccessful) {
+                            Log.d("GoogleSignIn", "Login Firebase SUKSES")
+                            onSuccess()
+                        } else {
+                            val exception = firebaseTask.exception
+                            Log.e("GoogleSignIn", "Login Firebase GAGAL", exception)
+                            // Pesan error yang lebih user-friendly
+                            onError("Gagal autentikasi Firebase: ${exception?.message}")
+                        }
+                    }
+            } else {
+                onError("Gagal mendapatkan ID Token dari Google (Token null).")
             }
+        } else {
+            onError("Akun Google tidak ditemukan.")
+        }
     } catch (e: ApiException) {
-        Log.w("GoogleSignIn", "Login Google GAGAL", e)
-        onError("Login Google Gagal: (code ${e.statusCode})")
+        Log.e("GoogleSignIn", "Google Sign In API Error: code ${e.statusCode}", e)
+        // Code 12500 biasanya berarti SHA-1 Fingerprint belum ditambahkan di Firebase Console
+        // Code 12501 berarti user membatalkan dialog sign in
+        // Code 10 berarti salah konfigurasi (misal client ID salah)
+        val readableError = when(e.statusCode) {
+            12500 -> "Konfigurasi Salah: SHA-1 Fingerprint belum ditambahkan di Firebase Console."
+            12501 -> "Login dibatalkan oleh pengguna."
+            10 -> "Kesalahan Konfigurasi Developer (Cek Client ID)."
+            else -> "Google Sign In Error: ${e.statusCode}"
+        }
+        onError(readableError)
+    } catch (e: Exception) {
+        Log.e("GoogleSignIn", "Unknown Error", e)
+        onError("Terjadi kesalahan tak terduga: ${e.message}")
     }
 }
+
+// --- PREVIEW SECTION ---
 
 @Preview
 @Composable
