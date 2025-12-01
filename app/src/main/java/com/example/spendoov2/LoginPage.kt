@@ -299,7 +299,7 @@ fun LoginPage(
                     painter = painterResource(id = R.drawable.google_icon),
                     contentDescription = "Login with Google",
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(52.dp)
                         .clickable {
                             errorMessage = null
                             // Pastikan logout dulu dari Google Client agar bisa memilih akun lagi
@@ -307,60 +307,6 @@ fun LoginPage(
                                 val signInIntent = googleSignInClient.signInIntent
                                 googleSignInLauncher.launch(signInIntent)
                             }
-                        }
-                )
-
-                // Ikon Facebook
-                Image(
-                    painter = painterResource(id = R.drawable.facebook_icon),
-                    contentDescription = "Login with Facebook",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable {
-                            errorMessage = "Login Facebook belum diimplementasikan."
-                        }
-                )
-
-                // Ikon GitHub
-                Image(
-                    painter = painterResource(id = R.drawable.github_icon),
-                    contentDescription = "Login with GitHub",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable {
-                            errorMessage = null
-                            val activity = context as? Activity
-                            if (activity != null) {
-                                val pendingResultTask = auth.pendingAuthResult
-                                if (pendingResultTask != null) {
-                                    pendingResultTask.addOnSuccessListener {
-                                        onNavigateToHome()
-                                    }.addOnFailureListener { e ->
-                                        errorMessage = "Login GitHub Gagal: ${e.message}"
-                                    }
-                                } else {
-                                    auth.startActivityForSignInWithProvider(activity, githubProvider)
-                                        .addOnSuccessListener {
-                                            onNavigateToHome()
-                                        }
-                                        .addOnFailureListener { e ->
-                                            errorMessage = "Login GitHub Gagal: ${e.message}"
-                                        }
-                                }
-                            } else {
-                                errorMessage = "Error: Konteks aplikasi tidak valid."
-                            }
-                        }
-                )
-
-                // Ikon Apple
-                Image(
-                    painter = painterResource(id = R.drawable.apple_icon),
-                    contentDescription = "Login with Apple",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable {
-                            errorMessage = "Login Apple belum diimplementasikan."
                         }
                 )
             }

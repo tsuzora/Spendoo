@@ -51,14 +51,14 @@ import com.google.firebase.firestore.Query
 data class TransactionData(
     val id: String = "",
     val type: String = "",
+    val image : Int = 0,
     val category: String = "",
     val date: Int = 0,
     val month: String = "",
     val year: Int = 0,
-    val hour: Int,
-    val minute: Int,
-    val isAMPM: String,
-    val image: Int = 0,
+    val hour: Int = 0,
+    val minute: Int = 0,
+    val isAMPM: String = "",
     val amount: Int = 0
 )
 
@@ -190,21 +190,6 @@ fun RecentTransactionList(
         }
     }
 }
-
-//        val sortedTransactionsMonth = transactionShown.sortedByDescending { it.date }
-//
-//        LazyColumn(
-//            modifier = modifier
-//                .fillMaxWidth()
-//                .padding(32.dp, 4.dp)
-//        ) {
-//            items(sortedTransactionsMonth) { transactions ->
-//
-//                TransactionBanner(transaction = transactions)
-//            }
-//        }
-//    }
-//}
 
 @Composable
 fun TransactionBanner(

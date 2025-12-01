@@ -71,39 +71,4 @@ fun generateTransactionData(num: Int) {
 }
 
 
-//fun TransactionData(num: Int) {
-//    for (i in 1..num) {
-//        val transactionType = type.random()
-//
-//         val catTransaction = if (transactionType == "income") {
-//            categoryIncome.entries.random()
-//        } else {
-//            categoryExpense.entries.random()
-//        }
-//
-//        val amount = if (transactionType == "income") {
-//            (1..100).random()
-//        } else {
-//            (1..35).random()
-//        }
-//
-//        val catName = catTransaction.key
-//        val icon = catTransaction.value
-//        val date = (10..15).random()
-//        val month = Months.entries.random()
-//
-//        TransactionLists.add(
-//            TransactionData(
-//                transactionType,
-//                catName,
-//                date,
-//                "September",
-//                2025,
-//                icon,
-//                amount * 10000
-//            )
-//        )
-//
-//    }
-//
-//}
+
